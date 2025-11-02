@@ -5,6 +5,7 @@ import connectDB from './config/db';
 import userRoutes from './routes/userRoutes';
 import contactRoutes from './routes/contactRoutes';
 import wishlistRoutes from './routes/wishlistRoutes';
+import friendRoutes from './routes/friendRoutes';
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ app.use(express.json());
 app.use('/api/users', userRoutes);
 app.use('/api/contacts', contactRoutes);
 app.use('/api/wishlists', wishlistRoutes);
+app.use('/api/friends', friendRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
