@@ -21,6 +21,20 @@ Track contacts' interests, manage gift ideas, and share wishlists with anonymous
 
 ## 🎉 Recent Updates
 
+### Phase 2: Friend System (In Progress)
+
+**Phase 2.1: Friend Management ✅ COMPLETE**
+- ✅ **Send Friend Requests**: Search users by email and send friend requests
+- ✅ **Receive Requests**: View pending friend requests with badge notifications
+- ✅ **Accept/Decline**: Manage incoming friend requests
+- ✅ **Friends List**: View all friends with email and friendship date
+- ✅ **Remove Friends**: Remove friends with confirmation dialog
+- ✅ **Bidirectional**: Friendship works both ways automatically
+- ✅ **Real-time Updates**: Automatic refresh with React Query
+- ✅ **Tested**: Full workflow verified with multiple users
+
+**Coming Next: Phase 2.2 - Friend Groups**
+
 ### Multi-Wishlist Feature (Completed)
 Users can now create and manage multiple wishlists with different visibility settings:
 - ✅ **Multiple Named Wishlists**: Create wishlists for different occasions (Christmas, Wedding, Birthday, etc.)
@@ -30,7 +44,7 @@ Users can now create and manage multiple wishlists with different visibility set
 - ✅ **Per-Wishlist Stats**: Track items, reserved count, and total value per wishlist
 - ✅ **Data Migration**: Existing wishlist data automatically migrated
 
-See [FRONTEND_PROGRESS.md](FRONTEND_PROGRESS.md) for detailed implementation notes.
+See [PHASE2_FRIEND_SYSTEM.md](PHASE2_FRIEND_SYSTEM.md) and [FRONTEND_PROGRESS.md](FRONTEND_PROGRESS.md) for detailed implementation notes.
 
 ## 🏗️ Project Structure
 
