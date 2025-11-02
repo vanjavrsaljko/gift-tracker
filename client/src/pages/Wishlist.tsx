@@ -46,8 +46,8 @@ import {
 } from '@chakra-ui/react';
 import { AddIcon, EditIcon, DeleteIcon, LinkIcon, ExternalLinkIcon, CopyIcon, CheckIcon, SettingsIcon } from '@chakra-ui/icons';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { wishlistAPI } from '../services/api';
-import { Wishlist, WishlistItem } from '../types';
+import { wishlistAPI, friendAPI } from '../services/api';
+import { Wishlist, WishlistItem, Friend } from '../types';
 import { useAuth } from '../context/AuthContext';
 
 const WishlistPage: React.FC = () => {
@@ -60,14 +60,17 @@ const WishlistPage: React.FC = () => {
   const { isOpen: isItemModalOpen, onOpen: onItemModalOpen, onClose: onItemModalClose } = useDisclosure();
   const { isOpen: isDeleteWishlistOpen, onOpen: onDeleteWishlistOpen, onClose: onDeleteWishlistClose } = useDisclosure();
   const { isOpen: isDeleteItemOpen, onOpen: onDeleteItemOpen, onClose: onDeleteItemClose } = useDisclosure();
+  const { isOpen: isShareModalOpen, onOpen: onShareModalOpen, onClose: onShareModalClose } = useDisclosure();
   const cancelRef = React.useRef<HTMLButtonElement>(null);
 
   // State
   const [selectedWishlist, setSelectedWishlist] = useState<Wishlist | null>(null);
   const [editingWishlist, setEditingWishlist] = useState<Wishlist | null>(null);
+  const [sharingWishlist, setSharingWishlist] = useState<Wishlist | null>(null);
   const [selectedItem, setSelectedItem] = useState<WishlistItem | null>(null);
   const [wishlistToDelete, setWishlistToDelete] = useState<string | null>(null);
   const [itemToDelete, setItemToDelete] = useState<{ wishlistId: string; itemId: string } | null>(null);
+  const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
   
   const [wishlistFormData, setWishlistFormData] = useState({
     name: '',
@@ -89,6 +92,12 @@ const WishlistPage: React.FC = () => {
   const { data: wishlists = [], isLoading } = useQuery({
     queryKey: ['wishlists'],
     queryFn: wishlistAPI.getAllWishlists,
+  });
+
+  // Fetch friends for sharing
+  const { data: friends = [] } = useQuery({
+    queryKey: ['friends'],
+    queryFn: friendAPI.getAll,
   });
 
   // Set first wishlist as selected when data loads
@@ -229,6 +238,29 @@ const WishlistPage: React.FC = () => {
     },
   });
 
+  // Share wishlist mutation
+  const shareWishlistMutation = useMutation({
+    mutationFn: ({ wishlistId, friendIds }: { wishlistId: string; friendIds: string[] }) =>
+      wishlistAPI.share(wishlistId, friendIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wishlists'] });
+      toast({
+        title: 'Wishlist shared successfully',
+        status: 'success',
+        duration: 3000,
+      });
+      onShareModalClose();
+      setSelectedFriends([]);
+    },
+    onError: () => {
+      toast({
+        title: 'Error sharing wishlist',
+        status: 'error',
+        duration: 3000,
+      });
+    },
+  });
+
   // Form handlers
   const resetWishlistForm = () => {
     setWishlistFormData({ name: '', description: '', visibility: 'public' });
@@ -302,7 +334,30 @@ const WishlistPage: React.FC = () => {
     onDeleteItemOpen();
   };
 
-  const handleItemSubmit = () => {
+  const handleShareWishlist = (wishlist: Wishlist) => {
+    setSharingWishlist(wishlist);
+    setSelectedFriends(wishlist.sharedWith || []);
+    onShareModalOpen();
+  };
+
+  const handleShareSubmit = () => {
+    if (!sharingWishlist) return;
+    shareWishlistMutation.mutate({
+      wishlistId: sharingWishlist._id,
+      friendIds: selectedFriends,
+    });
+  };
+
+  const toggleFriendSelection = (friendId: string) => {
+    setSelectedFriends(prev =>
+      prev.includes(friendId)
+        ? prev.filter(id => id !== friendId)
+        : [...prev, friendId]
+    );
+  };
+
+  const handleItemSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
     if (!selectedWishlist) return;
 
     const itemData = {
@@ -436,6 +491,17 @@ const WishlistPage: React.FC = () => {
                                 )}
                               </VStack>
                               <HStack>
+                                {wishlist.visibility === 'private' && (
+                                  <Button
+                                    size="sm"
+                                    leftIcon={<ExternalLinkIcon />}
+                                    colorScheme="purple"
+                                    variant="outline"
+                                    onClick={() => handleShareWishlist(wishlist)}
+                                  >
+                                    Share ({wishlist.sharedWith?.length || 0})
+                                  </Button>
+                                )}
                                 <IconButton
                                   aria-label="Edit wishlist"
                                   icon={<SettingsIcon />}
@@ -693,6 +759,84 @@ const WishlistPage: React.FC = () => {
               isLoading={createItemMutation.isPending || updateItemMutation.isPending}
             >
               {selectedItem ? 'Update' : 'Add'}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Share Wishlist Modal */}
+      <Modal isOpen={isShareModalOpen} onClose={onShareModalClose} size="lg">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Share Wishlist with Friends</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack align="stretch" spacing={4}>
+              {sharingWishlist && (
+                <Box>
+                  <Text fontWeight="bold" mb={2}>
+                    Sharing: {sharingWishlist.name}
+                  </Text>
+                  <Text fontSize="sm" color="gray.600" mb={4}>
+                    Select friends who can view this private wishlist
+                  </Text>
+                </Box>
+              )}
+
+              {friends.length === 0 ? (
+                <Text color="gray.500" textAlign="center" py={4}>
+                  You don't have any friends yet. Add friends first to share wishlists!
+                </Text>
+              ) : (
+                <VStack align="stretch" spacing={2}>
+                  {friends.map((friend) => (
+                    <Card
+                      key={friend._id}
+                      variant="outline"
+                      cursor="pointer"
+                      bg={selectedFriends.includes(friend.friendId) ? 'purple.50' : 'white'}
+                      borderColor={selectedFriends.includes(friend.friendId) ? 'purple.500' : 'gray.200'}
+                      onClick={() => toggleFriendSelection(friend.friendId)}
+                      _hover={{ borderColor: 'purple.300' }}
+                    >
+                      <CardBody py={3}>
+                        <HStack justify="space-between">
+                          <VStack align="start" spacing={0}>
+                            <Text fontWeight="medium">{friend.name}</Text>
+                            <Text fontSize="sm" color="gray.600">
+                              {friend.email}
+                            </Text>
+                          </VStack>
+                          {selectedFriends.includes(friend.friendId) && (
+                            <CheckIcon color="purple.500" />
+                          )}
+                        </HStack>
+                      </CardBody>
+                    </Card>
+                  ))}
+                </VStack>
+              )}
+
+              {selectedFriends.length > 0 && (
+                <Box>
+                  <Text fontSize="sm" color="gray.600">
+                    Selected: {selectedFriends.length} friend{selectedFriends.length !== 1 ? 's' : ''}
+                  </Text>
+                </Box>
+              )}
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onShareModalClose}>
+              Cancel
+            </Button>
+            <Button
+              colorScheme="purple"
+              onClick={handleShareSubmit}
+              isLoading={shareWishlistMutation.isPending}
+              isDisabled={friends.length === 0}
+            >
+              Share
             </Button>
           </ModalFooter>
         </ModalContent>
