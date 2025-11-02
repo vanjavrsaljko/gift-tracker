@@ -58,3 +58,31 @@ export interface PublicWishlist {
     items: WishlistItem[];
   }[];
 }
+
+// Friend types
+export interface Friend {
+  _id: string;
+  friendId: string;
+  name: string;
+  email: string;
+  groups: string[];
+  acceptedAt: Date;
+}
+
+export interface FriendRequest {
+  _id: string;
+  requestedBy: {
+    _id: string;
+    name: string;
+    email: string;
+  };
+  requestedAt: Date;
+}
+
+export interface UserSearchResult {
+  _id: string;
+  name: string;
+  email: string;
+  friendshipStatus: 'pending' | 'accepted' | 'declined' | null;
+  friendshipId: string | null;
+}

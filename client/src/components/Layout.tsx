@@ -65,6 +65,15 @@ const Layout: React.FC = () => {
       >
         My Wishlist
       </Button>
+      <Button
+        as={RouterLink}
+        to="/friends"
+        variant="ghost"
+        colorScheme="brand"
+        onClick={onClose}
+      >
+        Friends
+      </Button>
     </>
   );
 
