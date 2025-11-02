@@ -11,6 +11,9 @@ import {
   deleteWishlistItem,
   getPublicWishlists,
   reserveWishlistItem,
+  shareWishlist,
+  unshareWishlist,
+  getSharedWith,
 } from '../controllers/wishlistController';
 
 const router = express.Router();
@@ -42,5 +45,10 @@ router
 
 // Reserve item (public)
 router.put('/:wishlistId/items/:itemId/reserve', reserveWishlistItem);
+
+// Wishlist sharing
+router.get('/:id/shared', protect, getSharedWith);
+router.post('/:id/share', protect, shareWishlist);
+router.delete('/:id/share/:friendId', protect, unshareWishlist);
 
 export default router;
