@@ -12,6 +12,7 @@
 - **Friend Controller**: Implemented 9 endpoints for complete friend management
 - **Friend Routes**: Registered all endpoints with authentication
 - **Database Indexes**: Added compound indexes for performance and duplicate prevention
+- **Wishlist Tests**: Updated all integration tests for multi-wishlist structure (35 tests passing, 76.43% coverage)
 
 ### 🚧 In Progress
 - Frontend implementation (Friends page UI)
