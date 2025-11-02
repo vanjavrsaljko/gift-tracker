@@ -681,11 +681,11 @@ const WishlistPage: React.FC = () => {
                   onChange={(e) => setWishlistFormData({ ...wishlistFormData, visibility: e.target.value as 'public' | 'private' })}
                 >
                   <option value="public">Public - Anyone with link can view</option>
-                  <option value="private">Private - Only specific friends (coming soon)</option>
+                  <option value="private">Private - Only friends you share with</option>
                 </Select>
                 {wishlistFormData.visibility === 'private' && (
-                  <Text fontSize="sm" color="orange.500" mt={2}>
-                    Note: Private wishlist sharing with friends is coming soon. For now, private wishlists won't be visible in your public link.
+                  <Text fontSize="sm" color="purple.600" mt={2}>
+                    💡 Private wishlists can be shared with specific friends using the Share button.
                   </Text>
                 )}
               </FormControl>
