@@ -140,6 +140,22 @@ export const wishlistAPI = {
   reserve: async (wishlistId: string, itemId: string, userId?: string): Promise<void> => {
     await api.put(`/wishlists/${wishlistId}/items/${itemId}/reserve`, { userId });
   },
+
+  // Wishlist sharing
+  share: async (wishlistId: string, friendIds: string[]): Promise<{ message: string; sharedWith: string[] }> => {
+    const { data } = await api.post(`/wishlists/${wishlistId}/share`, { friendIds });
+    return data;
+  },
+
+  unshare: async (wishlistId: string, friendId: string): Promise<{ message: string; sharedWith: string[] }> => {
+    const { data } = await api.delete(`/wishlists/${wishlistId}/share/${friendId}`);
+    return data;
+  },
+
+  getSharedWith: async (wishlistId: string): Promise<{ _id: string; name: string; email: string }[]> => {
+    const { data } = await api.get(`/wishlists/${wishlistId}/shared`);
+    return data;
+  },
 };
 
 // Friend API

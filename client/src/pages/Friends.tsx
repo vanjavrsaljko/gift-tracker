@@ -40,14 +40,16 @@ import {
   InputLeftElement,
   Spinner,
 } from '@chakra-ui/react';
-import { AddIcon, DeleteIcon, SearchIcon, CheckIcon, CloseIcon } from '@chakra-ui/icons';
+import { AddIcon, DeleteIcon, SearchIcon, CheckIcon, CloseIcon, ExternalLinkIcon } from '@chakra-ui/icons';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useNavigate } from 'react-router-dom';
 import { friendAPI } from '../services/api';
 import { Friend, FriendRequest, UserSearchResult } from '../types';
 
 const Friends: React.FC = () => {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const navigate = useNavigate();
   const cancelRef = React.useRef<HTMLButtonElement>(null);
 
   // Modal states
@@ -302,9 +304,20 @@ const Friends: React.FC = () => {
                           )}
 
                           <Divider />
-                          <Text fontSize="xs" color="gray.500">
-                            Friends since {new Date(friend.acceptedAt).toLocaleDateString()}
-                          </Text>
+                          <HStack justify="space-between">
+                            <Text fontSize="xs" color="gray.500">
+                              Friends since {new Date(friend.acceptedAt).toLocaleDateString()}
+                            </Text>
+                            <Button
+                              size="sm"
+                              leftIcon={<ExternalLinkIcon />}
+                              colorScheme="blue"
+                              variant="outline"
+                              onClick={() => navigate(`/wishlist/${friend.friendId}`)}
+                            >
+                              View Wishlist
+                            </Button>
+                          </HStack>
                         </VStack>
                       </CardBody>
                     </Card>

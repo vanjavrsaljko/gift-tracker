@@ -37,6 +37,7 @@ export interface Wishlist {
   name: string;
   description?: string;
   visibility: 'public' | 'private';
+  sharedWith?: string[];
   items: WishlistItem[];
   createdAt?: string;
 }
@@ -55,6 +56,8 @@ export interface PublicWishlist {
     _id: string;
     name: string;
     description?: string;
+    visibility: 'public' | 'private';
+    isShared?: boolean;
     items: WishlistItem[];
   }[];
 }
