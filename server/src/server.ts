@@ -7,7 +7,10 @@ import contactRoutes from './routes/contactRoutes';
 import wishlistRoutes from './routes/wishlistRoutes';
 import friendRoutes from './routes/friendRoutes';
 
-dotenv.config();
+// Only load .env file in development (production uses docker-compose env_file)
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config();
+}
 
 const app = express();
 

@@ -1,11 +1,16 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 
-dotenv.config();
+// Only load .env file in development (production uses docker-compose env_file)
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config();
+}
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/gifttracker');
+    // Support both MONGODB_URI (production) and MONGO_URI (legacy)
+    const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017/gifttracker';
+    const conn = await mongoose.connect(mongoUri);
     console.log(`MongoDB Connected: ${conn.connection.host}`);
   } catch (error: unknown) {
     if (error instanceof Error) {
