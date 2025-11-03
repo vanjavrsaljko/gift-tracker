@@ -39,12 +39,15 @@ import {
   InputGroup,
   InputLeftElement,
   Spinner,
+  Wrap,
+  WrapItem,
+  Checkbox,
 } from '@chakra-ui/react';
-import { AddIcon, DeleteIcon, SearchIcon, CheckIcon, CloseIcon, ExternalLinkIcon } from '@chakra-ui/icons';
+import { AddIcon, DeleteIcon, SearchIcon, CheckIcon, CloseIcon, ExternalLinkIcon, InfoIcon } from '@chakra-ui/icons';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useNavigate } from 'react-router-dom';
 import { friendAPI } from '../services/api';
-import { Friend, FriendRequest, UserSearchResult } from '../types';
+import { Friend, FriendRequest, UserSearchResult, ContactData } from '../types';
 
 const Friends: React.FC = () => {
   const queryClient = useQueryClient();
@@ -55,12 +58,15 @@ const Friends: React.FC = () => {
   // Modal states
   const { isOpen: isAddModalOpen, onOpen: onAddModalOpen, onClose: onAddModalClose } = useDisclosure();
   const { isOpen: isRemoveDialogOpen, onOpen: onRemoveDialogOpen, onClose: onRemoveDialogClose } = useDisclosure();
+  const { isOpen: isContactDataModalOpen, onOpen: onContactDataModalOpen, onClose: onContactDataModalClose } = useDisclosure();
 
   // State
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [friendToRemove, setFriendToRemove] = useState<Friend | null>(null);
+  const [selectedFriendForContactData, setSelectedFriendForContactData] = useState<Friend | null>(null);
+  const [contactData, setContactData] = useState<ContactData | null>(null);
 
   // Fetch friends
   const { data: friends = [], isLoading: friendsLoading } = useQuery({
@@ -210,6 +216,21 @@ const Friends: React.FC = () => {
     return null;
   };
 
+  const handleViewContactData = async (friend: Friend) => {
+    try {
+      const data = await friendAPI.getContactData(friend.friendId);
+      setContactData(data);
+      setSelectedFriendForContactData(friend);
+      onContactDataModalOpen();
+    } catch (error) {
+      toast({
+        title: 'Error fetching contact data',
+        status: 'error',
+        duration: 3000,
+      });
+    }
+  };
+
   return (
     <Box p={8}>
       <VStack align="stretch" spacing={6}>
@@ -304,20 +325,30 @@ const Friends: React.FC = () => {
                           )}
 
                           <Divider />
-                          <HStack justify="space-between">
-                            <Text fontSize="xs" color="gray.500">
-                              Friends since {new Date(friend.acceptedAt).toLocaleDateString()}
-                            </Text>
+                          
+                          <Text fontSize="xs" color="gray.500">
+                            Friends since {new Date(friend.acceptedAt).toLocaleDateString()}
+                          </Text>
+
+                          <VStack align="stretch" spacing={2}>
                             <Button
                               size="sm"
                               leftIcon={<ExternalLinkIcon />}
                               colorScheme="blue"
-                              variant="outline"
                               onClick={() => navigate(`/wishlist/${friend.friendId}`)}
                             >
                               View Wishlist
                             </Button>
-                          </HStack>
+                            <Button
+                              size="sm"
+                              leftIcon={<InfoIcon />}
+                              colorScheme="purple"
+                              variant="outline"
+                              onClick={() => handleViewContactData(friend)}
+                            >
+                              View Contact Notes
+                            </Button>
+                          </VStack>
                         </VStack>
                       </CardBody>
                     </Card>
@@ -489,6 +520,88 @@ const Friends: React.FC = () => {
           </AlertDialogContent>
         </AlertDialogOverlay>
       </AlertDialog>
+
+      {/* Contact Data Modal */}
+      <Modal isOpen={isContactDataModalOpen} onClose={onContactDataModalClose} size="lg">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            Contact Notes for {selectedFriendForContactData?.name}
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {contactData ? (
+              <VStack align="stretch" spacing={4}>
+                {contactData.interests && contactData.interests.length > 0 && (
+                  <Box>
+                    <Text fontWeight="bold" mb={2}>
+                      Interests:
+                    </Text>
+                    <Wrap>
+                      {contactData.interests.map((interest, idx) => (
+                        <WrapItem key={idx}>
+                          <Badge colorScheme="purple" fontSize="sm">
+                            {interest}
+                          </Badge>
+                        </WrapItem>
+                      ))}
+                    </Wrap>
+                  </Box>
+                )}
+
+                {contactData.giftIdeas && contactData.giftIdeas.length > 0 && (
+                  <Box>
+                    <Text fontWeight="bold" mb={2}>
+                      Gift Ideas:
+                    </Text>
+                    <VStack align="stretch" spacing={2}>
+                      {contactData.giftIdeas.map((idea) => (
+                        <HStack key={idea._id} align="start">
+                          <Checkbox isChecked={idea.purchased} isReadOnly>
+                            <VStack align="start" spacing={0}>
+                              <Text
+                                fontSize="sm"
+                                textDecoration={idea.purchased ? 'line-through' : 'none'}
+                              >
+                                {idea.name}
+                              </Text>
+                              {idea.notes && (
+                                <Text fontSize="xs" color="gray.500">
+                                  {idea.notes}
+                                </Text>
+                              )}
+                            </VStack>
+                          </Checkbox>
+                        </HStack>
+                      ))}
+                    </VStack>
+                  </Box>
+                )}
+
+                {(!contactData.interests || contactData.interests.length === 0) &&
+                  (!contactData.giftIdeas || contactData.giftIdeas.length === 0) && (
+                    <Text color="gray.500" textAlign="center" py={4}>
+                      No contact notes available for this friend yet.
+                    </Text>
+                  )}
+
+                <Box bg="blue.50" p={3} borderRadius="md">
+                  <Text fontSize="sm" color="blue.700">
+                    💡 These are your personal notes about this friend from your Contacts page.
+                  </Text>
+                </Box>
+              </VStack>
+            ) : (
+              <Text color="gray.500" textAlign="center" py={4}>
+                No contact data linked for this friend.
+              </Text>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button onClick={onContactDataModalClose}>Close</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Box>
   );
 };
