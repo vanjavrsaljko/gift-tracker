@@ -7,42 +7,65 @@ Track contacts' interests, manage gift ideas, and share wishlists with anonymous
 ### Backend (Node.js/Express/MongoDB)
 - JWT authentication with bcrypt
 - Contact CRUD with interests and gift ideas (edit/delete gift ideas)
+- **Contact-Friend Integration**: Link contacts to friends with auto-linking
 - **Multi-Wishlist System**: Multiple wishlists per user with visibility controls
+- **Friend System**: Friend requests, management, and private wishlist sharing
 - Public/Private wishlist sharing with anonymous reservations
-- 47 passing tests (~78% coverage)
+- 59 passing tests (~78% coverage)
 
 ### Frontend (React/TypeScript/Chakra UI v2)
 - **Authentication**: Login, Register, Protected Routes
 - **Dashboard**: Aggregated stats across all wishlists, shareable link
-- **Contacts**: Full CRUD, interests tags, gift ideas with edit/delete
+- **Contacts**: Full CRUD, interests tags, gift ideas, link to friends, suggestions banner
+- **Friends**: Friend requests, management, view contact notes, create contacts
 - **Wishlist**: Multiple wishlists with tabs, visibility toggle (Public/Private), full item CRUD
-- **Public Wishlist**: Multiple public wishlists grouped by name, anonymous reservation
+- **Public Wishlist**: Multiple public wishlists grouped by name, anonymous reservation, contact notes
+- **Contact-Friend Integration**: Smart auto-linking, manual linking, bidirectional navigation
 - All features tested and working
 
 ## 🎉 Recent Updates
 
-### Phase 2: Friend System (In Progress)
+### Contact-Friend Integration ✅ COMPLETE (November 3, 2025)
 
-**Phase 2.1: Friend Management ✅ COMPLETE**
-- ✅ **Send Friend Requests**: Search users by email and send friend requests
-- ✅ **Receive Requests**: View pending friend requests with badge notifications
-- ✅ **Accept/Decline**: Manage incoming friend requests
-- ✅ **Friends List**: View all friends with email and friendship date
-- ✅ **Remove Friends**: Remove friends with confirmation dialog
-- ✅ **Bidirectional**: Friendship works both ways automatically
-- ✅ **Real-time Updates**: Automatic refresh with React Query
-- ✅ **Tested**: Full workflow verified with multiple users
+A comprehensive feature connecting Contacts and Friends systems with smart auto-linking:
 
-**Phase 2.3: Private Wishlist Sharing ✅ COMPLETE**
-- ✅ **Share Private Wishlists**: Share private wishlists with specific friends
-- ✅ **Friend Selection**: Modal with multi-select friend cards (purple theme)
-- ✅ **Share Count**: Display number of friends with access
-- ✅ **View Friend Wishlists**: Navigate to friend's wishlists from Friends page
-- ✅ **Shared Badge**: Purple "Shared with you" badge on shared wishlists
-- ✅ **Optional Auth**: Authenticated users see shared private wishlists
-- ✅ **Tested**: Complete sharing workflow verified (Alice → Bob)
+**Smart Auto-Linking:**
+- ✅ **Email-Based Auto-Link**: Automatically links contacts to friends when email matches
+- ✅ **Link Suggestions Banner**: Shows email-matched contacts with quick "Link Now" buttons
+- ✅ **Auto-Link on Friend Accept**: Detects email match and links automatically
+- ✅ **Enhanced Notifications**: Success toasts show which contact was linked
 
-**Coming Next: Phase 2.4 - Notifications & Polish**
+**Manual Workflows:**
+- ✅ **Link to Friend**: Select from friend list to link existing contact
+- ✅ **Create Contact from Friend**: Pre-filled form with friend's info, auto-links after creation
+- ✅ **Conditional Buttons**: "View Contact Notes" (linked) or "Create Contact" (unlinked)
+- ✅ **Manual Link Modal**: Fallback when no email match on friend accept
+
+**Data Display:**
+- ✅ **Contact Notes on Friends Page**: Modal showing interests and gift ideas
+- ✅ **Contact Notes on Wishlist Page**: Purple section while browsing friend's wishlist
+- ✅ **Read-Only Display**: Encourages editing from Contacts page
+- ✅ **Empty States**: Graceful handling when no contact data
+
+**Technical Implementation:**
+- ✅ **4 New API Endpoints**: link, unlink, suggestions, contact-data
+- ✅ **24 Integration Tests**: Complete test coverage for linking workflows
+- ✅ **Migration 003**: Backward compatibility for existing data
+- ✅ **Privacy-Conscious**: Only shares interests/gift ideas, not personal info
+
+📖 **See [CONTACT_FRIEND_INTEGRATION_PLAN.md](CONTACT_FRIEND_INTEGRATION_PLAN.md) for complete documentation**
+
+### Phase 2: Friend System ✅ COMPLETE
+
+**Phase 2.1: Friend Management ✅**
+- ✅ Send/receive friend requests with badge notifications
+- ✅ Accept/decline requests, remove friends
+- ✅ Bidirectional friendships with real-time updates
+
+**Phase 2.3: Private Wishlist Sharing ✅**
+- ✅ Share private wishlists with specific friends
+- ✅ Multi-select friend cards with share count
+- ✅ "Shared with you" badge on shared wishlists
 
 ### Multi-Wishlist Feature (Completed)
 Users can now create and manage multiple wishlists with different visibility settings:
@@ -104,6 +127,19 @@ gift-tracker/
 - `DELETE /api/contacts/:id` - Delete contact (protected)
 - `POST /api/contacts/:id/gift-ideas` - Add gift idea to contact (protected)
 - `PUT /api/contacts/:contactId/gift-ideas/:giftIdeaId` - Toggle gift idea purchased status (protected)
+- `POST /api/contacts/:contactId/link/:friendId` - Link contact to friend (protected)
+- `DELETE /api/contacts/:contactId/link` - Unlink contact from friend (protected)
+- `GET /api/contacts/link-suggestions` - Get email-matched link suggestions (protected)
+
+### Friends
+- `GET /api/friends` - Get all friends (protected)
+- `GET /api/friends/requests` - Get friend requests (protected)
+- `POST /api/friends/request` - Send friend request (protected)
+- `PUT /api/friends/:id/accept` - Accept friend request (protected)
+- `PUT /api/friends/:id/decline` - Decline friend request (protected)
+- `DELETE /api/friends/:id` - Remove friend (protected)
+- `GET /api/friends/search` - Search users by email (protected)
+- `GET /api/friends/:friendId/contact-data` - Get linked contact data (protected)
 
 ### Wishlist
 - `GET /api/wishlist` - Get user's wishlist (protected)
@@ -136,6 +172,8 @@ gift-tracker/
   notes?: string
   interests: string[]
   giftIdeas: Array<GiftIdea>
+  linkedUserId?: ObjectId  // Link to friend user
+  linkedAt?: Date
 }
 ```
 
@@ -199,13 +237,15 @@ For production deployment to AWS EC2 with CI/CD, see **[DEPLOYMENT.md](DEPLOYMEN
 
 ## 🧪 Testing
 
-The backend has comprehensive test coverage with **47 passing tests** (~78% coverage) using Jest, Supertest, and MongoDB Memory Server.
+The backend has comprehensive test coverage with **59 passing tests** (~78% coverage) using Jest, Supertest, and MongoDB Memory Server.
 
 **Test Coverage:**
 - ✅ Unit tests for User model
 - ✅ Integration tests for Authentication API
 - ✅ Integration tests for Contacts API
 - ✅ Integration tests for Wishlist API
+- ✅ Integration tests for Friend System
+- ✅ Integration tests for Contact-Friend Linking (24 tests)
 
 **Running Tests:**
 ```bash
@@ -220,11 +260,10 @@ npm run test:integration  # Integration tests only
 
 ## 📝 Future Enhancements
 
-### Phase 2: Friend System (Next Priority)
-- Friend relationship management (add/remove friends)
-- Friend requests and acceptance workflow
-- Private wishlist sharing with specific friends
+### Potential Enhancements
 - Friend groups/categories for granular sharing
+- Notifications system for friend requests and reservations
+- Activity feed showing friend updates
 
 ### Additional Features
 - PWA features (service worker, offline support, install prompt)
