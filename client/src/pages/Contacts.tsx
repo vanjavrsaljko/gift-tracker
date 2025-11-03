@@ -402,6 +402,54 @@ const Contacts: React.FC = () => {
         </Button>
       </HStack>
 
+      {/* Link Suggestions Banner */}
+      {linkSuggestions.length > 0 && (
+        <Card bg="green.50" borderColor="green.300" borderWidth="2px" mb={6}>
+          <CardBody>
+            <VStack align="stretch" spacing={3}>
+              <HStack>
+                <LinkIcon color="green.600" />
+                <Heading size="md" color="green.800">
+                  Link Suggestions ({linkSuggestions.length})
+                </Heading>
+              </HStack>
+              <Text fontSize="sm" color="green.700">
+                We found contacts that match your friends by email. Link them to see their wishlists!
+              </Text>
+              <VStack align="stretch" spacing={2}>
+                {linkSuggestions.map((suggestion) => (
+                  <Card key={suggestion.contact._id} variant="outline">
+                    <CardBody py={3}>
+                      <HStack justify="space-between">
+                        <VStack align="start" spacing={0}>
+                          <Text fontWeight="medium">
+                            {suggestion.contact.name} → {suggestion.friend.name}
+                          </Text>
+                          <Text fontSize="xs" color="gray.600">
+                            {suggestion.contact.email}
+                          </Text>
+                        </VStack>
+                        <Button
+                          size="sm"
+                          colorScheme="green"
+                          onClick={() => linkMutation.mutate({ 
+                            contactId: suggestion.contact._id, 
+                            friendId: suggestion.friend._id 
+                          })}
+                          isLoading={linkMutation.isPending}
+                        >
+                          Link Now
+                        </Button>
+                      </HStack>
+                    </CardBody>
+                  </Card>
+                ))}
+              </VStack>
+            </VStack>
+          </CardBody>
+        </Card>
+      )}
+
       {contacts.length === 0 ? (
         <Box textAlign="center" py={10}>
           <Text fontSize="lg" color="gray.500" mb={4}>

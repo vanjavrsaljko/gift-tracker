@@ -43,11 +43,11 @@ import {
   WrapItem,
   Checkbox,
 } from '@chakra-ui/react';
-import { AddIcon, DeleteIcon, SearchIcon, CheckIcon, CloseIcon, ExternalLinkIcon, InfoIcon } from '@chakra-ui/icons';
+import { AddIcon, DeleteIcon, SearchIcon, CheckIcon, CloseIcon, ExternalLinkIcon, InfoIcon, LinkIcon } from '@chakra-ui/icons';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useNavigate } from 'react-router-dom';
-import { friendAPI } from '../services/api';
-import { Friend, FriendRequest, UserSearchResult, ContactData } from '../types';
+import { friendAPI, contactsAPI } from '../services/api';
+import { Friend, FriendRequest, UserSearchResult, ContactData, Contact } from '../types';
 
 const Friends: React.FC = () => {
   const queryClient = useQueryClient();
@@ -59,6 +59,7 @@ const Friends: React.FC = () => {
   const { isOpen: isAddModalOpen, onOpen: onAddModalOpen, onClose: onAddModalClose } = useDisclosure();
   const { isOpen: isRemoveDialogOpen, onOpen: onRemoveDialogOpen, onClose: onRemoveDialogClose } = useDisclosure();
   const { isOpen: isContactDataModalOpen, onOpen: onContactDataModalOpen, onClose: onContactDataModalClose } = useDisclosure();
+  const { isOpen: isLinkAfterAcceptModalOpen, onOpen: onLinkAfterAcceptModalOpen, onClose: onLinkAfterAcceptModalClose } = useDisclosure();
 
   // State
   const [searchQuery, setSearchQuery] = useState('');
@@ -67,6 +68,8 @@ const Friends: React.FC = () => {
   const [friendToRemove, setFriendToRemove] = useState<Friend | null>(null);
   const [selectedFriendForContactData, setSelectedFriendForContactData] = useState<Friend | null>(null);
   const [contactData, setContactData] = useState<ContactData | null>(null);
+  const [newlyAcceptedFriend, setNewlyAcceptedFriend] = useState<{ friendId: string; name: string; email: string } | null>(null);
+  const [selectedContactForLink, setSelectedContactForLink] = useState<string>('');
 
   // Fetch friends
   const { data: friends = [], isLoading: friendsLoading } = useQuery({
@@ -78,6 +81,12 @@ const Friends: React.FC = () => {
   const { data: requests = [], isLoading: requestsLoading } = useQuery({
     queryKey: ['friendRequests'],
     queryFn: friendAPI.getRequests,
+  });
+
+  // Fetch all contacts for linking
+  const { data: allContacts = [] } = useQuery({
+    queryKey: ['contacts'],
+    queryFn: contactsAPI.getAll,
   });
 
   // Send friend request mutation
@@ -105,14 +114,55 @@ const Friends: React.FC = () => {
   // Accept request mutation
   const acceptMutation = useMutation({
     mutationFn: friendAPI.accept,
-    onSuccess: () => {
+    onSuccess: async (data, requestId) => {
       queryClient.invalidateQueries({ queryKey: ['friends'] });
       queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
-      toast({
-        title: 'Friend request accepted',
-        status: 'success',
-        duration: 3000,
-      });
+      
+      // Find the accepted friend request
+      const acceptedRequest = requests.find((r: FriendRequest) => r._id === requestId);
+      if (!acceptedRequest) return;
+
+      // Check for auto-link opportunity (matching email)
+      const matchingContact = allContacts.find(
+        (c: Contact) => 
+          c.email?.toLowerCase() === acceptedRequest.requestedBy.email.toLowerCase() && 
+          !c.linkedUserId
+      );
+
+      if (matchingContact) {
+        // Auto-link the contact
+        try {
+          await contactsAPI.linkToFriend(matchingContact._id, acceptedRequest.requestedBy._id);
+          queryClient.invalidateQueries({ queryKey: ['contacts'] });
+          toast({
+            title: 'Friend request accepted & contact linked!',
+            description: `${acceptedRequest.requestedBy.name} was automatically linked to your contact "${matchingContact.name}"`,
+            status: 'success',
+            duration: 5000,
+          });
+        } catch (error) {
+          toast({
+            title: 'Friend request accepted',
+            description: 'Could not auto-link contact',
+            status: 'success',
+            duration: 3000,
+          });
+        }
+      } else {
+        // No auto-link, show manual link modal
+        setNewlyAcceptedFriend({
+          friendId: acceptedRequest.requestedBy._id,
+          name: acceptedRequest.requestedBy.name,
+          email: acceptedRequest.requestedBy.email,
+        });
+        onLinkAfterAcceptModalOpen();
+        
+        toast({
+          title: 'Friend request accepted',
+          status: 'success',
+          duration: 3000,
+        });
+      }
     },
     onError: () => {
       toast({
@@ -230,6 +280,62 @@ const Friends: React.FC = () => {
       });
     }
   };
+
+  // Link contact mutation (for manual linking after accept)
+  const linkContactMutation = useMutation({
+    mutationFn: ({ contactId, friendId }: { contactId: string; friendId: string }) =>
+      contactsAPI.linkToFriend(contactId, friendId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      toast({
+        title: 'Contact linked to friend',
+        status: 'success',
+        duration: 3000,
+      });
+      onLinkAfterAcceptModalClose();
+      setNewlyAcceptedFriend(null);
+      setSelectedContactForLink('');
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error linking contact',
+        description: error.response?.data?.message || 'Something went wrong',
+        status: 'error',
+        duration: 3000,
+      });
+    },
+  });
+
+  const handleLinkAfterAccept = () => {
+    if (newlyAcceptedFriend && selectedContactForLink) {
+      linkContactMutation.mutate({
+        contactId: selectedContactForLink,
+        friendId: newlyAcceptedFriend.friendId,
+      });
+    }
+  };
+
+  const handleSkipLinking = () => {
+    onLinkAfterAcceptModalClose();
+    setNewlyAcceptedFriend(null);
+    setSelectedContactForLink('');
+  };
+
+  const handleCreateContactForFriend = () => {
+    // Navigate to contacts page and pre-fill with friend info
+    navigate('/contacts', { 
+      state: { 
+        createContact: true,
+        name: newlyAcceptedFriend?.name,
+        email: newlyAcceptedFriend?.email,
+        friendId: newlyAcceptedFriend?.friendId
+      } 
+    });
+    onLinkAfterAcceptModalClose();
+  };
+
+  // Get unlinked contacts for the modal
+  const unlinkedContacts = allContacts.filter((c: Contact) => !c.linkedUserId);
 
   return (
     <Box p={8}>
@@ -599,6 +705,99 @@ const Friends: React.FC = () => {
           </ModalBody>
           <ModalFooter>
             <Button onClick={onContactDataModalClose}>Close</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Link After Accept Modal */}
+      <Modal isOpen={isLinkAfterAcceptModalOpen} onClose={handleSkipLinking} size="lg">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            <HStack>
+              <LinkIcon color="green.600" />
+              <Text>Link {newlyAcceptedFriend?.name} to a Contact?</Text>
+            </HStack>
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack align="stretch" spacing={4}>
+              <Text fontSize="sm" color="gray.600">
+                You just accepted {newlyAcceptedFriend?.name} as a friend! Would you like to link them to one of your contacts to see their wishlist and track gift ideas?
+              </Text>
+
+              {unlinkedContacts.length > 0 ? (
+                <>
+                  <FormControl>
+                    <FormLabel>Select an existing contact</FormLabel>
+                    <VStack align="stretch" spacing={2} maxH="250px" overflowY="auto">
+                      {unlinkedContacts.map((contact: Contact) => (
+                        <Card
+                          key={contact._id}
+                          variant={selectedContactForLink === contact._id ? 'filled' : 'outline'}
+                          cursor="pointer"
+                          onClick={() => setSelectedContactForLink(contact._id)}
+                          bg={selectedContactForLink === contact._id ? 'green.50' : 'white'}
+                          borderColor={selectedContactForLink === contact._id ? 'green.500' : 'gray.200'}
+                          _hover={{ borderColor: 'green.300' }}
+                        >
+                          <CardBody py={3}>
+                            <HStack justify="space-between">
+                              <VStack align="start" spacing={0}>
+                                <Text fontWeight="medium">{contact.name}</Text>
+                                {contact.email && (
+                                  <Text fontSize="xs" color="gray.600">{contact.email}</Text>
+                                )}
+                              </VStack>
+                              {selectedContactForLink === contact._id && (
+                                <Badge colorScheme="green">Selected</Badge>
+                              )}
+                            </HStack>
+                          </CardBody>
+                        </Card>
+                      ))}
+                    </VStack>
+                  </FormControl>
+
+                  <Divider />
+
+                  <Text fontSize="sm" fontWeight="medium" color="gray.700">
+                    Or create a new contact:
+                  </Text>
+                </>
+              ) : (
+                <Box bg="orange.50" p={3} borderRadius="md">
+                  <Text fontSize="sm" color="orange.700">
+                    You don't have any unlinked contacts. Create a new contact for {newlyAcceptedFriend?.name}:
+                  </Text>
+                </Box>
+              )}
+
+              <Button
+                leftIcon={<AddIcon />}
+                colorScheme="blue"
+                variant="outline"
+                onClick={handleCreateContactForFriend}
+              >
+                Create New Contact for {newlyAcceptedFriend?.name}
+              </Button>
+            </VStack>
+          </ModalBody>
+
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={handleSkipLinking}>
+              Skip for Now
+            </Button>
+            {unlinkedContacts.length > 0 && (
+              <Button
+                colorScheme="green"
+                onClick={handleLinkAfterAccept}
+                isDisabled={!selectedContactForLink}
+                isLoading={linkContactMutation.isPending}
+              >
+                Link Contact
+              </Button>
+            )}
           </ModalFooter>
         </ModalContent>
       </Modal>
