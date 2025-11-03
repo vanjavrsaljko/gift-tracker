@@ -116,7 +116,9 @@ export const updateUserProfile = async (req: any, res: Response) => {
 
 // Generate JWT
 const generateToken = (id: any) => {
+  // Use JWT_EXPIRY from env or default to 90 days for mobile-friendly experience
+  const expiresIn: string | number = process.env.JWT_EXPIRY || '90d';
   return jwt.sign({ id }, process.env.JWT_SECRET || 'your_jwt_secret', {
-    expiresIn: '30d', // Token expires in 30 days
+    expiresIn,
   });
 };
