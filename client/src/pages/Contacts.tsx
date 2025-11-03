@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -46,7 +46,7 @@ import {
 } from '@chakra-ui/react';
 import { AddIcon, EditIcon, DeleteIcon, LinkIcon, ExternalLinkIcon } from '@chakra-ui/icons';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { contactsAPI, friendAPI } from '../services/api';
 import { Contact, Friend, LinkSuggestion } from '../types';
 
@@ -54,6 +54,7 @@ const Contacts: React.FC = () => {
   const queryClient = useQueryClient();
   const toast = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
   const { isOpen: isLinkModalOpen, onOpen: onLinkModalOpen, onClose: onLinkModalClose } = useDisclosure();
@@ -63,6 +64,7 @@ const Contacts: React.FC = () => {
   const [contactToDelete, setContactToDelete] = useState<string | null>(null);
   const [contactToLink, setContactToLink] = useState<Contact | null>(null);
   const [selectedFriendId, setSelectedFriendId] = useState<string>('');
+  const [pendingFriendIdForLink, setPendingFriendIdForLink] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -73,6 +75,29 @@ const Contacts: React.FC = () => {
   const [newInterest, setNewInterest] = useState('');
   const [newGiftIdea, setNewGiftIdea] = useState({ name: '', notes: '' });
   const [editingGiftIdea, setEditingGiftIdea] = useState<{ contactId: string; ideaId: string; name: string; notes: string } | null>(null);
+
+  // Effect to handle navigation from Friends page with pre-filled data
+  useEffect(() => {
+    const state = location.state as any;
+    if (state?.createContact) {
+      // Pre-fill form with friend data
+      setFormData({
+        name: state.name || '',
+        email: state.email || '',
+        phone: '',
+        notes: '',
+        interests: [],
+      });
+      // Store friendId for auto-linking after creation
+      if (state.friendId) {
+        setPendingFriendIdForLink(state.friendId);
+      }
+      // Open the modal
+      onOpen();
+      // Clear the navigation state
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate, onOpen]);
 
   // Fetch contacts
   const { data: contacts = [], isLoading } = useQuery({
@@ -95,13 +120,36 @@ const Contacts: React.FC = () => {
   // Create contact mutation
   const createMutation = useMutation({
     mutationFn: contactsAPI.create,
-    onSuccess: () => {
+    onSuccess: async (newContact) => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
-      toast({
-        title: 'Contact created',
-        status: 'success',
-        duration: 3000,
-      });
+      
+      // Auto-link to friend if pendingFriendIdForLink is set
+      if (pendingFriendIdForLink) {
+        try {
+          await contactsAPI.linkToFriend(newContact._id, pendingFriendIdForLink);
+          queryClient.invalidateQueries({ queryKey: ['contacts'] });
+          queryClient.invalidateQueries({ queryKey: ['linkSuggestions'] });
+          toast({
+            title: 'Contact created & linked to friend!',
+            status: 'success',
+            duration: 3000,
+          });
+          setPendingFriendIdForLink(null);
+        } catch (error) {
+          toast({
+            title: 'Contact created',
+            description: 'Could not auto-link to friend',
+            status: 'success',
+            duration: 3000,
+          });
+        }
+      } else {
+        toast({
+          title: 'Contact created',
+          status: 'success',
+          duration: 3000,
+        });
+      }
       handleCloseModal();
     },
     onError: () => {
