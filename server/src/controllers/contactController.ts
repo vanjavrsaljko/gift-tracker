@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import User from '../models/User';
+import Friend from '../models/Friend';
 
 // @desc    Add a contact
 // @route   POST /api/contacts
@@ -296,6 +297,165 @@ export const deleteGiftIdea = async (req: any, res: Response) => {
     await user.save();
     
     res.json({ message: 'Gift idea deleted' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Link contact to friend
+// @route   POST /api/contacts/:contactId/link/:friendId
+// @access  Private
+export const linkContactToFriend = async (req: any, res: Response) => {
+  try {
+    const { contactId, friendId } = req.params;
+    const userId = req.user._id;
+
+    // Find user and contact
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const contact = user.contacts.find(
+      (c: any) => c._id.toString() === contactId
+    );
+    if (!contact) {
+      return res.status(404).json({ message: 'Contact not found' });
+    }
+
+    // Check if contact is already linked
+    if (contact.linkedUserId) {
+      return res.status(400).json({ message: 'Contact is already linked to a friend' });
+    }
+
+    // Verify friendship exists and is accepted
+    const friendship = await Friend.findOne({
+      $or: [
+        { userId: userId, friendId: friendId, status: 'accepted' },
+        { userId: friendId, friendId: userId, status: 'accepted' }
+      ]
+    });
+
+    if (!friendship) {
+      return res.status(400).json({ message: 'Friend relationship not found or not accepted' });
+    }
+
+    // Optional: Verify email match if both exist
+    const friendUser = await User.findById(friendId);
+    if (contact.email && friendUser?.email) {
+      if (contact.email.toLowerCase() !== friendUser.email.toLowerCase()) {
+        // Warning but not blocking
+        console.warn(`Email mismatch: contact ${contact.email} vs friend ${friendUser.email}`);
+      }
+    }
+
+    // Link contact to friend
+    contact.linkedUserId = friendId;
+    contact.linkedAt = new Date();
+    await user.save();
+
+    res.json(contact);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Unlink contact from friend
+// @route   DELETE /api/contacts/:contactId/link
+// @access  Private
+export const unlinkContactFromFriend = async (req: any, res: Response) => {
+  try {
+    const { contactId } = req.params;
+    const userId = req.user._id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const contact = user.contacts.find(
+      (c: any) => c._id.toString() === contactId
+    );
+    if (!contact) {
+      return res.status(404).json({ message: 'Contact not found' });
+    }
+
+    if (!contact.linkedUserId) {
+      return res.status(400).json({ message: 'Contact is not linked to any friend' });
+    }
+
+    // Unlink contact
+    contact.linkedUserId = undefined;
+    contact.linkedAt = undefined;
+    await user.save();
+
+    res.json(contact);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Get link suggestions (contacts that match friends by email)
+// @route   GET /api/contacts/link-suggestions
+// @access  Private
+export const getLinkSuggestions = async (req: any, res: Response) => {
+  try {
+    const userId = req.user._id;
+
+    // Get user with contacts
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Get unlinked contacts with email
+    const unlinkedContacts = user.contacts.filter(
+      (c: any) => !c.linkedUserId && c.email
+    );
+
+    if (unlinkedContacts.length === 0) {
+      return res.json([]);
+    }
+
+    // Get accepted friends
+    const friendships = await Friend.find({
+      $or: [
+        { userId: userId, status: 'accepted' },
+        { friendId: userId, status: 'accepted' }
+      ]
+    });
+
+    const friendIds = friendships.map(f => 
+      f.userId.toString() === userId.toString() ? f.friendId : f.userId
+    );
+
+    // Get friend user data
+    const friends = await User.find({ _id: { $in: friendIds } }).select('name email');
+
+    // Match contacts to friends by email
+    const suggestions = [];
+    for (const contact of unlinkedContacts) {
+      const matchingFriend = friends.find(
+        f => f.email.toLowerCase() === contact.email?.toLowerCase()
+      );
+
+      if (matchingFriend) {
+        suggestions.push({
+          contact: contact,
+          friend: {
+            _id: matchingFriend._id,
+            name: matchingFriend.name,
+            email: matchingFriend.email
+          },
+          matchReason: 'email'
+        });
+      }
+    }
+
+    res.json(suggestions);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });

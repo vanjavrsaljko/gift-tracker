@@ -36,6 +36,8 @@ export interface IUser extends Document {
       notes: string;
       purchased: boolean;
     }>;
+    linkedUserId?: mongoose.Types.ObjectId;
+    linkedAt?: Date;
   }>;
   matchPassword(enteredPassword: string): Promise<boolean>;
 }
@@ -92,6 +94,8 @@ const userSchema = new Schema<IUser>(
             purchased: { type: Boolean, default: false },
           },
         ],
+        linkedUserId: { type: Schema.Types.ObjectId, ref: 'User' },
+        linkedAt: Date,
       },
     ],
   },

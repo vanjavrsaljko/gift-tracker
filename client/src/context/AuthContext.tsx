@@ -38,23 +38,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const login = async (email: string, password: string) => {
+    console.log('[AuthContext] Login attempt for:', email);
     try {
+      console.log('[AuthContext] Calling authAPI.login...');
       const userData = await authAPI.login(email, password);
+      console.log('[AuthContext] Login successful:', userData);
       localStorage.setItem('token', userData.token);
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
     } catch (error: any) {
+      console.error('[AuthContext] Login error:', error);
+      console.error('[AuthContext] Error response:', error.response);
       throw new Error(error.response?.data?.message || 'Login failed');
     }
   };
 
   const register = async (name: string, email: string, password: string) => {
+    console.log('[AuthContext] Register attempt for:', email);
     try {
+      console.log('[AuthContext] Calling authAPI.register...');
       const userData = await authAPI.register(name, email, password);
+      console.log('[AuthContext] Registration successful:', userData);
       localStorage.setItem('token', userData.token);
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
     } catch (error: any) {
+      console.error('[AuthContext] Registration error:', error);
+      console.error('[AuthContext] Error response:', error.response);
       throw new Error(error.response?.data?.message || 'Registration failed');
     }
   };

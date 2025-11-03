@@ -7,6 +7,7 @@ import User from '../models/User';
 // @access  Public
 export const registerUser = async (req: Request, res: Response) => {
   const { name, email, password } = req.body;
+  console.log('[userController] Registration attempt:', { email, name });
 
   try {
     const userExists = await User.findOne({ email });
@@ -42,6 +43,7 @@ export const registerUser = async (req: Request, res: Response) => {
 // @access  Public
 export const authUser = async (req: Request, res: Response) => {
   const { email, password } = req.body;
+  console.log('[userController] Login attempt:', { email });
 
   try {
     const user = await User.findOne({ email });

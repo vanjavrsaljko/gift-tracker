@@ -71,6 +71,40 @@ const migrations: Migration[] = [
       );
     },
   },
+  {
+    version: '003',
+    description: 'Add linkedUserId and linkedAt fields to contacts',
+    up: async () => {
+      console.log('Running migration 003: Add contact linking fields');
+      const User = mongoose.model('User');
+      
+      // Update all users to add linkedUserId and linkedAt fields to contacts if not present
+      const result = await User.updateMany(
+        { 'contacts.linkedUserId': { $exists: false } },
+        { 
+          $set: { 
+            'contacts.$[].linkedUserId': null,
+            'contacts.$[].linkedAt': null
+          } 
+        }
+      );
+      
+      console.log(`Migration 003 completed: Updated ${result.modifiedCount} users`);
+    },
+    down: async () => {
+      console.log('Rolling back migration 003');
+      const User = mongoose.model('User');
+      await User.updateMany(
+        {},
+        { 
+          $unset: { 
+            'contacts.$[].linkedUserId': '',
+            'contacts.$[].linkedAt': ''
+          } 
+        }
+      );
+    },
+  },
   // Add more migrations here as your schema evolves
 ];
 

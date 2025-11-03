@@ -13,6 +13,8 @@ export interface Contact {
   notes?: string;
   interests: string[];
   giftIdeas: GiftIdea[];
+  linkedUserId?: string;
+  linkedAt?: string;
 }
 
 export interface GiftIdea {
@@ -88,4 +90,16 @@ export interface UserSearchResult {
   email: string;
   friendshipStatus: 'pending' | 'accepted' | 'declined' | null;
   friendshipId: string | null;
+}
+
+// Contact-Friend linking types
+export interface LinkSuggestion {
+  contact: Contact;
+  friend: Friend;
+  matchReason: 'email' | 'manual';
+}
+
+export interface ContactData {
+  interests: string[];
+  giftIdeas: GiftIdea[];
 }

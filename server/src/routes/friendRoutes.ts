@@ -10,6 +10,7 @@ import {
   searchUsers,
   addFriendToGroups,
   removeFriendFromGroup,
+  getContactDataForFriend,
 } from '../controllers/friendController';
 
 const router = express.Router();
@@ -24,6 +25,9 @@ router.post('/request', protect, sendFriendRequest);
 // Friend management
 router.get('/', protect, getFriends);
 router.delete('/:id', protect, removeFriend);
+
+// Get contact data for friend (must be before /:id routes)
+router.get('/:friendId/contact-data', protect, getContactDataForFriend);
 
 // Accept/Decline requests
 router.put('/:id/accept', protect, acceptFriendRequest);

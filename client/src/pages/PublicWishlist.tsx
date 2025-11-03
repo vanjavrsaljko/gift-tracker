@@ -22,14 +22,19 @@ import {
   Link,
   Container,
   Divider,
+  Wrap,
+  WrapItem,
+  Checkbox,
 } from '@chakra-ui/react';
-import { ExternalLinkIcon, CheckIcon } from '@chakra-ui/icons';
+import { ExternalLinkIcon, CheckIcon, InfoIcon } from '@chakra-ui/icons';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { wishlistAPI } from '../services/api';
-import { PublicWishlist as PublicWishlistType, WishlistItem } from '../types';
+import { wishlistAPI, friendAPI } from '../services/api';
+import { PublicWishlist as PublicWishlistType, WishlistItem, ContactData } from '../types';
+import { useAuth } from '../context/AuthContext';
 
 const PublicWishlist: React.FC = () => {
   const { userId } = useParams<{ userId: string }>();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const toast = useToast();
   const [selectedItem, setSelectedItem] = useState<{ wishlistId: string; itemId: string } | null>(null);
@@ -41,6 +46,14 @@ const PublicWishlist: React.FC = () => {
     queryKey: ['publicWishlist', userId],
     queryFn: () => wishlistAPI.getPublic(userId!),
     enabled: !!userId,
+  });
+
+  // Fetch contact data for this user (if logged in and viewing a friend's wishlist)
+  const { data: contactData } = useQuery<ContactData | null>({
+    queryKey: ['friendContactData', userId],
+    queryFn: () => friendAPI.getContactData(userId!),
+    enabled: !!user && !!userId && userId !== user._id,
+    retry: false,
   });
 
   // Reserve item mutation
@@ -160,6 +173,76 @@ const PublicWishlist: React.FC = () => {
             </VStack>
           </CardBody>
         </Card>
+
+        {/* Contact Notes Section */}
+        {contactData && (
+          <Card bg="purple.50" borderColor="purple.200" borderWidth="2px">
+            <CardHeader>
+              <HStack>
+                <InfoIcon color="purple.600" />
+                <Heading size="md" color="purple.800">
+                  Your Notes About {data.userName}
+                </Heading>
+              </HStack>
+            </CardHeader>
+            <CardBody>
+              <VStack align="stretch" spacing={4}>
+                {contactData.interests && contactData.interests.length > 0 && (
+                  <Box>
+                    <Text fontWeight="bold" mb={2} color="purple.800">
+                      Interests:
+                    </Text>
+                    <Wrap>
+                      {contactData.interests.map((interest, idx) => (
+                        <WrapItem key={idx}>
+                          <Badge colorScheme="purple" fontSize="sm">
+                            {interest}
+                          </Badge>
+                        </WrapItem>
+                      ))}
+                    </Wrap>
+                  </Box>
+                )}
+
+                {contactData.giftIdeas && contactData.giftIdeas.length > 0 && (
+                  <Box>
+                    <Text fontWeight="bold" mb={2} color="purple.800">
+                      Your Gift Ideas:
+                    </Text>
+                    <VStack align="stretch" spacing={2}>
+                      {contactData.giftIdeas.map((idea) => (
+                        <HStack key={idea._id} align="start">
+                          <Checkbox isChecked={idea.purchased} isReadOnly>
+                            <VStack align="start" spacing={0}>
+                              <Text
+                                fontSize="sm"
+                                textDecoration={idea.purchased ? 'line-through' : 'none'}
+                                color="purple.900"
+                              >
+                                {idea.name}
+                              </Text>
+                              {idea.notes && (
+                                <Text fontSize="xs" color="purple.600">
+                                  {idea.notes}
+                                </Text>
+                              )}
+                            </VStack>
+                          </Checkbox>
+                        </HStack>
+                      ))}
+                    </VStack>
+                  </Box>
+                )}
+
+                <Divider />
+
+                <Text fontSize="xs" color="purple.600" fontStyle="italic">
+                  💡 These are your personal notes from your Contacts page
+                </Text>
+              </VStack>
+            </CardBody>
+          </Card>
+        )}
 
         {/* Wishlists */}
         {data.wishlists.length === 0 ? (
