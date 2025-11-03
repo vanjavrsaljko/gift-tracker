@@ -362,3 +362,48 @@ export const removeFriendFromGroup = async (req: any, res: Response) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// @desc    Get contact data for a friend (if linked)
+// @route   GET /api/friends/:friendId/contact-data
+// @access  Private
+export const getContactDataForFriend = async (req: any, res: Response) => {
+  try {
+    const { friendId } = req.params;
+    const userId = req.user._id;
+
+    // Verify friendship exists and is accepted
+    const friendship = await Friend.findOne({
+      $or: [
+        { userId: userId, friendId: friendId, status: 'accepted' },
+        { userId: friendId, friendId: userId, status: 'accepted' }
+      ]
+    });
+
+    if (!friendship) {
+      return res.status(403).json({ message: 'Not friends with this user' });
+    }
+
+    // Find user and check if they have a contact linked to this friend
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const linkedContact = user.contacts.find(
+      (c: any) => c.linkedUserId?.toString() === friendId
+    );
+
+    if (!linkedContact) {
+      return res.json(null); // No linked contact found
+    }
+
+    // Return only interests and gift ideas (not personal contact info)
+    res.json({
+      interests: linkedContact.interests || [],
+      giftIdeas: linkedContact.giftIdeas || [],
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};

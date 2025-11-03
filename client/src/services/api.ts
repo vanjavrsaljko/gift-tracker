@@ -3,6 +3,8 @@ import { User, Contact, Wishlist, WishlistItem, PublicWishlist, Friend, FriendRe
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
+console.log('[API] Using API_URL:', API_URL);
+
 const api = axios.create({
   baseURL: API_URL,
   headers: {
@@ -12,12 +14,30 @@ const api = axios.create({
 
 // Add token to requests if available
 api.interceptors.request.use((config) => {
+  console.log('[API] Request:', config.method?.toUpperCase(), config.url);
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
+
+// Log responses and errors
+api.interceptors.response.use(
+  (response) => {
+    console.log('[API] Response:', response.status, response.config.url);
+    return response;
+  },
+  (error) => {
+    console.error('[API] Error:', error.message);
+    if (error.response) {
+      console.error('[API] Error response:', error.response.status, error.response.data);
+    } else if (error.request) {
+      console.error('[API] No response received:', error.request);
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Auth API
 export const authAPI = {
