@@ -1,7 +1,16 @@
 import axios from 'axios';
 import { User, Contact, Wishlist, WishlistItem, PublicWishlist, Friend, FriendRequest, UserSearchResult, LinkSuggestion, ContactData } from '../types';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+// Get API URL from runtime config (injected by docker-entrypoint.sh) or build-time env var
+declare global {
+  interface Window {
+    ENV?: {
+      REACT_APP_API_URL?: string;
+    };
+  }
+}
+
+const API_URL = window.ENV?.REACT_APP_API_URL || process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 console.log('[API] Using API_URL:', API_URL);
 
