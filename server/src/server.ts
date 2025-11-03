@@ -18,8 +18,13 @@ const app = express();
 connectDB();
 
 // Middleware
+// Support multiple CORS origins (comma-separated in CORS_ORIGIN env var)
+const corsOrigins = process.env.CORS_ORIGIN 
+  ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
+  : '*';
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: corsOrigins,
   credentials: true,
 }));
 app.use(express.json());
