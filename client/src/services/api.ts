@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { User, Contact, Wishlist, WishlistItem, PublicWishlist, Friend, FriendRequest, UserSearchResult } from '../types';
+import { User, Contact, Wishlist, WishlistItem, PublicWishlist, Friend, FriendRequest, UserSearchResult, LinkSuggestion, ContactData } from '../types';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -105,6 +105,22 @@ export const contactsAPI = {
 
   toggleGiftIdeaPurchased: async (contactId: string, giftIdeaId: string) => {
     const { data } = await api.put(`/contacts/${contactId}/gift-ideas/${giftIdeaId}`);
+    return data;
+  },
+
+  // Contact-Friend linking
+  linkToFriend: async (contactId: string, friendId: string): Promise<Contact> => {
+    const { data } = await api.post(`/contacts/${contactId}/link/${friendId}`);
+    return data;
+  },
+
+  unlinkFromFriend: async (contactId: string): Promise<Contact> => {
+    const { data } = await api.delete(`/contacts/${contactId}/link`);
+    return data;
+  },
+
+  getLinkSuggestions: async (): Promise<LinkSuggestion[]> => {
+    const { data } = await api.get('/contacts/link-suggestions');
     return data;
   },
 };
@@ -231,6 +247,12 @@ export const friendAPI = {
   // Remove friend from group
   removeFromGroup: async (friendshipId: string, groupName: string): Promise<{ message: string; groups: string[] }> => {
     const { data } = await api.delete(`/friends/${friendshipId}/groups/${groupName}`);
+    return data;
+  },
+
+  // Get contact data for friend
+  getContactData: async (friendId: string): Promise<ContactData | null> => {
+    const { data } = await api.get(`/friends/${friendId}/contact-data`);
     return data;
   },
 };

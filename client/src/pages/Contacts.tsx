@@ -44,20 +44,25 @@ import {
   AccordionIcon,
   Checkbox,
 } from '@chakra-ui/react';
-import { AddIcon, EditIcon, DeleteIcon } from '@chakra-ui/icons';
+import { AddIcon, EditIcon, DeleteIcon, LinkIcon, ExternalLinkIcon } from '@chakra-ui/icons';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { contactsAPI } from '../services/api';
-import { Contact } from '../types';
+import { useNavigate } from 'react-router-dom';
+import { contactsAPI, friendAPI } from '../services/api';
+import { Contact, Friend, LinkSuggestion } from '../types';
 
 const Contacts: React.FC = () => {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const navigate = useNavigate();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
+  const { isOpen: isLinkModalOpen, onOpen: onLinkModalOpen, onClose: onLinkModalClose } = useDisclosure();
   const cancelRef = React.useRef<HTMLButtonElement>(null);
 
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [contactToDelete, setContactToDelete] = useState<string | null>(null);
+  const [contactToLink, setContactToLink] = useState<Contact | null>(null);
+  const [selectedFriendId, setSelectedFriendId] = useState<string>('');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -73,6 +78,18 @@ const Contacts: React.FC = () => {
   const { data: contacts = [], isLoading } = useQuery({
     queryKey: ['contacts'],
     queryFn: contactsAPI.getAll,
+  });
+
+  // Fetch friends for linking
+  const { data: friends = [] } = useQuery({
+    queryKey: ['friends'],
+    queryFn: friendAPI.getAll,
+  });
+
+  // Fetch link suggestions
+  const { data: linkSuggestions = [] } = useQuery({
+    queryKey: ['linkSuggestions'],
+    queryFn: contactsAPI.getLinkSuggestions,
   });
 
   // Create contact mutation
@@ -206,6 +223,53 @@ const Contacts: React.FC = () => {
     },
   });
 
+  // Link contact to friend mutation
+  const linkMutation = useMutation({
+    mutationFn: ({ contactId, friendId }: { contactId: string; friendId: string }) =>
+      contactsAPI.linkToFriend(contactId, friendId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      queryClient.invalidateQueries({ queryKey: ['linkSuggestions'] });
+      toast({
+        title: 'Contact linked to friend',
+        status: 'success',
+        duration: 3000,
+      });
+      onLinkModalClose();
+      setContactToLink(null);
+      setSelectedFriendId('');
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error linking contact',
+        description: error.response?.data?.message || 'Something went wrong',
+        status: 'error',
+        duration: 3000,
+      });
+    },
+  });
+
+  // Unlink contact from friend mutation
+  const unlinkMutation = useMutation({
+    mutationFn: (contactId: string) => contactsAPI.unlinkFromFriend(contactId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      queryClient.invalidateQueries({ queryKey: ['linkSuggestions'] });
+      toast({
+        title: 'Contact unlinked',
+        status: 'info',
+        duration: 3000,
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Error unlinking contact',
+        status: 'error',
+        duration: 3000,
+      });
+    },
+  });
+
   const handleOpenModal = (contact?: Contact) => {
     if (contact) {
       setSelectedContact(contact);
@@ -293,6 +357,30 @@ const Contacts: React.FC = () => {
     }
   };
 
+  const handleOpenLinkModal = (contact: Contact) => {
+    setContactToLink(contact);
+    setSelectedFriendId('');
+    onLinkModalOpen();
+  };
+
+  const handleLinkContact = () => {
+    if (contactToLink && selectedFriendId) {
+      linkMutation.mutate({ contactId: contactToLink._id, friendId: selectedFriendId });
+    }
+  };
+
+  const handleUnlinkContact = (contactId: string) => {
+    if (window.confirm('Are you sure you want to unlink this contact from the friend?')) {
+      unlinkMutation.mutate(contactId);
+    }
+  };
+
+  const getLinkedFriendName = (linkedUserId?: string): string | null => {
+    if (!linkedUserId) return null;
+    const friend = friends.find((f: Friend) => f.friendId === linkedUserId);
+    return friend ? friend.name : null;
+  };
+
   if (isLoading) {
     return (
       <Box>
@@ -328,24 +416,32 @@ const Contacts: React.FC = () => {
           {contacts.map((contact: Contact) => (
             <Card key={contact._id}>
               <CardHeader>
-                <HStack justify="space-between">
-                  <Heading size="md">{contact.name}</Heading>
-                  <HStack>
-                    <IconButton
-                      aria-label="Edit contact"
-                      icon={<EditIcon />}
-                      size="sm"
-                      onClick={() => handleOpenModal(contact)}
-                    />
-                    <IconButton
-                      aria-label="Delete contact"
-                      icon={<DeleteIcon />}
-                      size="sm"
-                      colorScheme="red"
-                      onClick={() => handleDeleteClick(contact._id)}
-                    />
+                <VStack align="stretch" spacing={2}>
+                  <HStack justify="space-between">
+                    <Heading size="md">{contact.name}</Heading>
+                    <HStack>
+                      <IconButton
+                        aria-label="Edit contact"
+                        icon={<EditIcon />}
+                        size="sm"
+                        onClick={() => handleOpenModal(contact)}
+                      />
+                      <IconButton
+                        aria-label="Delete contact"
+                        icon={<DeleteIcon />}
+                        size="sm"
+                        colorScheme="red"
+                        onClick={() => handleDeleteClick(contact._id)}
+                      />
+                    </HStack>
                   </HStack>
-                </HStack>
+                  {contact.linkedUserId && (
+                    <Badge colorScheme="green" display="flex" alignItems="center" gap={1} width="fit-content">
+                      <LinkIcon boxSize={3} />
+                      Linked to {getLinkedFriendName(contact.linkedUserId)}
+                    </Badge>
+                  )}
+                </VStack>
               </CardHeader>
               <CardBody>
                 <VStack align="stretch" spacing={3}>
@@ -543,6 +639,43 @@ const Contacts: React.FC = () => {
                       </AccordionPanel>
                     </AccordionItem>
                   </Accordion>
+
+                  <Divider />
+
+                  {/* Link/Unlink and View Wishlist Buttons */}
+                  <VStack align="stretch" spacing={2}>
+                    {contact.linkedUserId ? (
+                      <>
+                        <Button
+                          size="sm"
+                          leftIcon={<ExternalLinkIcon />}
+                          colorScheme="blue"
+                          onClick={() => navigate(`/wishlist/${contact.linkedUserId}`)}
+                        >
+                          View Friend's Wishlist
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          colorScheme="gray"
+                          onClick={() => handleUnlinkContact(contact._id)}
+                          isLoading={unlinkMutation.isPending}
+                        >
+                          Unlink Contact
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        size="sm"
+                        leftIcon={<LinkIcon />}
+                        colorScheme="green"
+                        onClick={() => handleOpenLinkModal(contact)}
+                        isDisabled={friends.length === 0}
+                      >
+                        {friends.length === 0 ? 'No Friends to Link' : 'Link to Friend'}
+                      </Button>
+                    )}
+                  </VStack>
                 </VStack>
               </CardBody>
             </Card>
@@ -673,6 +806,92 @@ const Contacts: React.FC = () => {
           </AlertDialogContent>
         </AlertDialogOverlay>
       </AlertDialog>
+
+      {/* Link to Friend Modal */}
+      <Modal isOpen={isLinkModalOpen} onClose={onLinkModalClose}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Link Contact to Friend</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4} align="stretch">
+              <Text fontSize="sm" color="gray.600">
+                Link "{contactToLink?.name}" to one of your friends. This will allow you to view their wishlist directly from this contact.
+              </Text>
+              
+              <FormControl isRequired>
+                <FormLabel>Select Friend</FormLabel>
+                <Box>
+                  {friends.length === 0 ? (
+                    <Text fontSize="sm" color="gray.500">
+                      You don't have any friends yet. Add friends first to link contacts.
+                    </Text>
+                  ) : (
+                    <VStack align="stretch" spacing={2} maxH="300px" overflowY="auto">
+                      {friends.map((friend: Friend) => {
+                        // Check if this friend is already linked to another contact
+                        const isLinked = contacts.some(
+                          (c: Contact) => c.linkedUserId === friend.friendId && c._id !== contactToLink?._id
+                        );
+                        
+                        return (
+                          <Card
+                            key={friend.friendId}
+                            variant={selectedFriendId === friend.friendId ? 'filled' : 'outline'}
+                            cursor={isLinked ? 'not-allowed' : 'pointer'}
+                            opacity={isLinked ? 0.5 : 1}
+                            onClick={() => !isLinked && setSelectedFriendId(friend.friendId)}
+                            bg={selectedFriendId === friend.friendId ? 'green.50' : 'white'}
+                            borderColor={selectedFriendId === friend.friendId ? 'green.500' : 'gray.200'}
+                            _hover={!isLinked ? { borderColor: 'green.300' } : {}}
+                          >
+                            <CardBody py={3}>
+                              <HStack justify="space-between">
+                                <VStack align="start" spacing={0}>
+                                  <Text fontWeight="medium">{friend.name}</Text>
+                                  <Text fontSize="xs" color="gray.500">{friend.email}</Text>
+                                </VStack>
+                                {isLinked && (
+                                  <Badge colorScheme="gray" fontSize="xs">Already Linked</Badge>
+                                )}
+                                {selectedFriendId === friend.friendId && (
+                                  <Badge colorScheme="green">Selected</Badge>
+                                )}
+                              </HStack>
+                            </CardBody>
+                          </Card>
+                        );
+                      })}
+                    </VStack>
+                  )}
+                </Box>
+              </FormControl>
+
+              {contactToLink?.email && (
+                <Box bg="blue.50" p={3} borderRadius="md">
+                  <Text fontSize="sm" color="blue.700">
+                    💡 Tip: We'll automatically suggest friends whose email matches this contact's email ({contactToLink.email})
+                  </Text>
+                </Box>
+              )}
+            </VStack>
+          </ModalBody>
+
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onLinkModalClose}>
+              Cancel
+            </Button>
+            <Button
+              colorScheme="green"
+              onClick={handleLinkContact}
+              isDisabled={!selectedFriendId}
+              isLoading={linkMutation.isPending}
+            >
+              Link Contact
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Box>
   );
 };
