@@ -38,11 +38,11 @@ echo "🏗️  Building Docker images..."
 
 # Build backend image
 echo "📦 Building backend..."
-docker build -t gift-tracker-backend:latest -f server/Dockerfile.prod server/
+docker build -t gift-tracker-backend:latest -f server/Dockerfile server/
 
 # Build frontend image  
 echo "📦 Building frontend..."
-docker build -t gift-tracker-frontend:latest -f client/Dockerfile.prod client/
+docker build -t gift-tracker-frontend:latest -f client/Dockerfile client/
 
 echo "🗄️  Running database migrations..."
 # Stop containers if running
