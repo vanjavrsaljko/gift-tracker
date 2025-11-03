@@ -281,6 +281,11 @@ const Friends: React.FC = () => {
     }
   };
 
+  // Check if a friend has linked contact data
+  const hasLinkedContact = (friendId: string): boolean => {
+    return allContacts.some((c: Contact) => c.linkedUserId === friendId);
+  };
+
   // Link contact mutation (for manual linking after accept)
   const linkContactMutation = useMutation({
     mutationFn: ({ contactId, friendId }: { contactId: string; friendId: string }) =>
@@ -321,17 +326,26 @@ const Friends: React.FC = () => {
     setSelectedContactForLink('');
   };
 
-  const handleCreateContactForFriend = () => {
+  const handleCreateContactForFriend = (friend?: Friend) => {
+    // Use provided friend or newlyAcceptedFriend
+    const friendData = friend || newlyAcceptedFriend;
+    
+    if (!friendData) return;
+    
     // Navigate to contacts page and pre-fill with friend info
     navigate('/contacts', { 
       state: { 
         createContact: true,
-        name: newlyAcceptedFriend?.name,
-        email: newlyAcceptedFriend?.email,
-        friendId: newlyAcceptedFriend?.friendId
+        name: friendData.name,
+        email: friendData.email,
+        friendId: friend ? friend.friendId : newlyAcceptedFriend?.friendId
       } 
     });
-    onLinkAfterAcceptModalClose();
+    
+    if (!friend) {
+      // Only close modal if called from modal
+      onLinkAfterAcceptModalClose();
+    }
   };
 
   // Get unlinked contacts for the modal
@@ -445,15 +459,27 @@ const Friends: React.FC = () => {
                             >
                               View Wishlist
                             </Button>
-                            <Button
-                              size="sm"
-                              leftIcon={<InfoIcon />}
-                              colorScheme="purple"
-                              variant="outline"
-                              onClick={() => handleViewContactData(friend)}
-                            >
-                              View Contact Notes
-                            </Button>
+                            {hasLinkedContact(friend.friendId) ? (
+                              <Button
+                                size="sm"
+                                leftIcon={<InfoIcon />}
+                                colorScheme="purple"
+                                variant="outline"
+                                onClick={() => handleViewContactData(friend)}
+                              >
+                                View Contact Notes
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                leftIcon={<AddIcon />}
+                                colorScheme="green"
+                                variant="outline"
+                                onClick={() => handleCreateContactForFriend(friend)}
+                              >
+                                Create Contact
+                              </Button>
+                            )}
                           </VStack>
                         </VStack>
                       </CardBody>
@@ -777,7 +803,7 @@ const Friends: React.FC = () => {
                 leftIcon={<AddIcon />}
                 colorScheme="blue"
                 variant="outline"
-                onClick={handleCreateContactForFriend}
+                onClick={() => handleCreateContactForFriend()}
               >
                 Create New Contact for {newlyAcceptedFriend?.name}
               </Button>
