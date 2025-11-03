@@ -29,6 +29,19 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Detailed health check with DB status
+app.get('/api/health', async (req, res) => {
+  const mongoose = require('mongoose');
+  const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+  
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    database: dbStatus,
+    environment: process.env.NODE_ENV || 'development',
+  });
+});
+
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error(err.stack);

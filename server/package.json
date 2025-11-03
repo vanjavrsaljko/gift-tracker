@@ -9,7 +9,9 @@
     "test:integration": "jest --testPathPatterns=integration",
     "dev": "ts-node src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "migrate": "ts-node src/scripts/migrate.ts",
+    "migrate:build": "node dist/scripts/migrate.js"
   },
   "keywords": [],
   "author": "",

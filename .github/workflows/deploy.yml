@@ -1,0 +1,225 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE_NAME: ${{ github.repository }}-backend
+  FRONTEND_IMAGE_NAME: ${{ github.repository }}-frontend
+
+jobs:
+  test-backend:
+    name: Test Backend
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./server
+        run: npm ci
+
+      - name: Run tests
+        working-directory: ./server
+        run: npm test
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: ./server/coverage/lcov.info
+          flags: backend
+          fail_ci_if_error: false
+
+  build-and-push-backend:
+    name: Build and Push Backend Image
+    runs-on: ubuntu-latest
+    needs: test-backend
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}
+          tags: |
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./server
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:latest
+          cache-to: type=inline
+
+  build-and-push-frontend:
+    name: Build and Push Frontend Image
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}
+          tags: |
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./client
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:latest
+          cache-to: type=inline
+
+  deploy:
+    name: Deploy to AWS EC2
+    runs-on: ubuntu-latest
+    needs: [build-and-push-backend, build-and-push-frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
+
+      - name: Copy deployment files
+        run: |
+          scp -i ~/.ssh/deploy_key docker-compose.prod.yml ubuntu@${{ secrets.SERVER_IP }}:~/gift-tracker/
+          scp -i ~/.ssh/deploy_key .env.production.example ubuntu@${{ secrets.SERVER_IP }}:~/gift-tracker/
+
+      - name: Deploy application
+        run: |
+          ssh -i ~/.ssh/deploy_key ubuntu@${{ secrets.SERVER_IP }} << 'EOF'
+            set -e
+            cd ~/gift-tracker
+            
+            # Load environment variables
+            if [ ! -f .env.production ]; then
+              echo "Error: .env.production file not found!"
+              exit 1
+            fi
+            export $(cat .env.production | xargs)
+            
+            # Login to GitHub Container Registry
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            # Pull latest images
+            docker-compose -f docker-compose.prod.yml pull
+            
+            # Run database migrations
+            echo "Running database migrations..."
+            docker run --rm \
+              -e MONGODB_URI="${MONGODB_URI}" \
+              -e NODE_ENV=production \
+              ghcr.io/${{ github.repository }}-backend:latest \
+              npm run migrate:build
+            
+            # Stop old containers
+            docker-compose -f docker-compose.prod.yml down
+            
+            # Start new containers
+            docker-compose -f docker-compose.prod.yml up -d
+            
+            # Clean up old images
+            docker image prune -af --filter "until=24h"
+            
+            # Wait for services to be healthy
+            echo "Waiting for services to be healthy..."
+            sleep 10
+            
+            # Check backend health
+            curl -f http://localhost:5000/api/health || exit 1
+            
+            # Check frontend health
+            curl -f http://localhost:80/health || exit 1
+            
+            echo "Deployment completed successfully!"
+          EOF
+
+      - name: Verify deployment
+        run: |
+          ssh -i ~/.ssh/deploy_key ubuntu@${{ secrets.SERVER_IP }} << 'EOF'
+            docker ps
+            docker-compose -f ~/gift-tracker/docker-compose.prod.yml logs --tail=50
+          EOF
+
+      - name: Cleanup SSH
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
+
+  notify:
+    name: Notify Deployment Status
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: always()
+
+    steps:
+      - name: Deployment Success
+        if: needs.deploy.result == 'success'
+        run: |
+          echo "✅ Deployment successful!"
+          echo "Backend: http://${{ secrets.SERVER_IP }}:5000"
+          echo "Frontend: http://${{ secrets.SERVER_IP }}"
+
+      - name: Deployment Failed
+        if: needs.deploy.result == 'failure'
+        run: |
+          echo "❌ Deployment failed!"
+          exit 1

@@ -153,12 +153,14 @@ gift-tracker/
 
 ## 🚀 Getting Started
 
-### Prerequisites
-- Node.js (v14 or higher)
+### Development Setup
+
+#### Prerequisites
+- Node.js (v18 or higher)
 - MongoDB (local or Atlas)
 - npm or yarn
 
-### Backend Setup
+#### Backend Setup
 ```bash
 cd server
 npm install
@@ -166,10 +168,11 @@ npm install
 
 Create a `.env` file in the server directory:
 ```env
-MONGO_URI=mongodb://localhost:27017/gifttracker
+MONGODB_URI=mongodb://localhost:27017/gifttracker
 JWT_SECRET=your_jwt_secret_here
 PORT=5000
 NODE_ENV=development
+CORS_ORIGIN=http://localhost:5173
 ```
 
 Start the server:
@@ -177,12 +180,22 @@ Start the server:
 npm run dev
 ```
 
-### Frontend Setup
+#### Frontend Setup
 ```bash
 cd client
 npm install
-npm start
+npm run dev
 ```
+
+### Production Deployment
+
+For production deployment to AWS EC2 with CI/CD, see **[DEPLOYMENT.md](DEPLOYMENT.md)** for complete instructions including:
+
+- 🐳 Docker setup
+- 🔄 CI/CD with GitHub Actions
+- 🗄️ Database migrations
+- 🔐 Security configuration
+- 📊 Monitoring and troubleshooting
 
 ## 🧪 Testing
 
