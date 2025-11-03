@@ -12,6 +12,7 @@ import Dashboard from './pages/Dashboard';
 import Contacts from './pages/Contacts';
 import Wishlist from './pages/Wishlist';
 import PublicWishlist from './pages/PublicWishlist';
+import Friends from './pages/Friends';
 
 // Components
 import Layout from './components/Layout';
@@ -36,6 +37,7 @@ function App() {
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/contacts" element={<Contacts />} />
                   <Route path="/wishlist" element={<Wishlist />} />
+                  <Route path="/friends" element={<Friends />} />
                 </Route>
               </Routes>
             </Box>

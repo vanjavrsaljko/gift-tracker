@@ -15,6 +15,7 @@ export interface IWishlist {
   name: string;
   description?: string;
   visibility: 'public' | 'private';
+  sharedWith?: mongoose.Types.ObjectId[];
   items: IWishlistItem[];
   createdAt?: Date;
 }
@@ -63,6 +64,7 @@ const userSchema = new Schema<IUser>(
           enum: ['public', 'private'],
           default: 'public'
         },
+        sharedWith: [{ type: Schema.Types.ObjectId, ref: 'User' }],
         items: [
           {
             name: { type: String, required: true },

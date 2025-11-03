@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { User, Contact, Wishlist, WishlistItem, PublicWishlist } from '../types';
+import { User, Contact, Wishlist, WishlistItem, PublicWishlist, Friend, FriendRequest, UserSearchResult } from '../types';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -139,6 +139,79 @@ export const wishlistAPI = {
 
   reserve: async (wishlistId: string, itemId: string, userId?: string): Promise<void> => {
     await api.put(`/wishlists/${wishlistId}/items/${itemId}/reserve`, { userId });
+  },
+
+  // Wishlist sharing
+  share: async (wishlistId: string, friendIds: string[]): Promise<{ message: string; sharedWith: string[] }> => {
+    const { data } = await api.post(`/wishlists/${wishlistId}/share`, { friendIds });
+    return data;
+  },
+
+  unshare: async (wishlistId: string, friendId: string): Promise<{ message: string; sharedWith: string[] }> => {
+    const { data } = await api.delete(`/wishlists/${wishlistId}/share/${friendId}`);
+    return data;
+  },
+
+  getSharedWith: async (wishlistId: string): Promise<{ _id: string; name: string; email: string }[]> => {
+    const { data } = await api.get(`/wishlists/${wishlistId}/shared`);
+    return data;
+  },
+};
+
+// Friend API
+export const friendAPI = {
+  // Get all friends
+  getAll: async (): Promise<Friend[]> => {
+    const { data } = await api.get('/friends');
+    return data;
+  },
+
+  // Get pending friend requests
+  getRequests: async (): Promise<FriendRequest[]> => {
+    const { data } = await api.get('/friends/requests');
+    return data;
+  },
+
+  // Send friend request
+  sendRequest: async (email: string): Promise<{ message: string; request: any }> => {
+    const { data } = await api.post('/friends/request', { email });
+    return data;
+  },
+
+  // Accept friend request
+  accept: async (requestId: string): Promise<{ message: string; friendship: any }> => {
+    const { data } = await api.put(`/friends/${requestId}/accept`);
+    return data;
+  },
+
+  // Decline friend request
+  decline: async (requestId: string): Promise<{ message: string }> => {
+    const { data } = await api.put(`/friends/${requestId}/decline`);
+    return data;
+  },
+
+  // Remove friend
+  remove: async (friendshipId: string): Promise<{ message: string }> => {
+    const { data } = await api.delete(`/friends/${friendshipId}`);
+    return data;
+  },
+
+  // Search users
+  search: async (query: string): Promise<UserSearchResult[]> => {
+    const { data } = await api.get(`/friends/search?q=${encodeURIComponent(query)}`);
+    return data;
+  },
+
+  // Add friend to groups
+  addToGroups: async (friendshipId: string, groups: string[]): Promise<{ message: string; groups: string[] }> => {
+    const { data } = await api.post(`/friends/${friendshipId}/groups`, { groups });
+    return data;
+  },
+
+  // Remove friend from group
+  removeFromGroup: async (friendshipId: string, groupName: string): Promise<{ message: string; groups: string[] }> => {
+    const { data } = await api.delete(`/friends/${friendshipId}/groups/${groupName}`);
+    return data;
   },
 };
 

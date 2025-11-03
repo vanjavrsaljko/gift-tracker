@@ -181,7 +181,14 @@ const PublicWishlist: React.FC = () => {
                     <CardBody>
                       <VStack align="start" spacing={2}>
                         <HStack justify="space-between" width="full">
-                          <Heading size="lg">{wishlist.name}</Heading>
+                          <HStack>
+                            <Heading size="lg">{wishlist.name}</Heading>
+                            {wishlist.isShared && (
+                              <Badge colorScheme="purple" fontSize="sm">
+                                Shared with you
+                              </Badge>
+                            )}
+                          </HStack>
                           <Badge colorScheme="blue" fontSize="md">
                             {availableItems.length} available
                           </Badge>

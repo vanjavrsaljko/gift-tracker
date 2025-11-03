@@ -1,5 +1,5 @@
 import express from 'express';
-import { protect } from '../middleware/auth';
+import { protect, optionalAuth } from '../middleware/auth';
 import {
   getWishlists,
   createWishlist,
@@ -11,12 +11,15 @@ import {
   deleteWishlistItem,
   getPublicWishlists,
   reserveWishlistItem,
+  shareWishlist,
+  unshareWishlist,
+  getSharedWith,
 } from '../controllers/wishlistController';
 
 const router = express.Router();
 
-// Public route - must be before /:id routes
-router.get('/public/:userId', getPublicWishlists);
+// Public route with optional auth - must be before /:id routes
+router.get('/public/:userId', optionalAuth, getPublicWishlists);
 
 // Wishlist CRUD
 router
@@ -24,10 +27,10 @@ router
   .get(protect, getWishlists)
   .post(protect, createWishlist);
 
-router
-  .route('/:id')
-  .put(protect, updateWishlist)
-  .delete(protect, deleteWishlist);
+// Wishlist sharing - must be before /:id routes
+router.get('/:id/shared', protect, getSharedWith);
+router.post('/:id/share', protect, shareWishlist);
+router.delete('/:id/share/:friendId', protect, unshareWishlist);
 
 // Wishlist items CRUD
 router
@@ -42,5 +45,11 @@ router
 
 // Reserve item (public)
 router.put('/:wishlistId/items/:itemId/reserve', reserveWishlistItem);
+
+// Generic /:id routes - must be last
+router
+  .route('/:id')
+  .put(protect, updateWishlist)
+  .delete(protect, deleteWishlist);
 
 export default router;

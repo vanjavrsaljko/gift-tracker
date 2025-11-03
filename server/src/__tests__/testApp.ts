@@ -14,7 +14,7 @@ const createTestApp = () => {
   // API Routes
   app.use('/api/users', userRoutes);
   app.use('/api/contacts', contactRoutes);
-  app.use('/api/wishlist', wishlistRoutes);
+  app.use('/api/wishlists', wishlistRoutes);
 
   return app;
 };

@@ -21,6 +21,29 @@ Track contacts' interests, manage gift ideas, and share wishlists with anonymous
 
 ## 🎉 Recent Updates
 
+### Phase 2: Friend System (In Progress)
+
+**Phase 2.1: Friend Management ✅ COMPLETE**
+- ✅ **Send Friend Requests**: Search users by email and send friend requests
+- ✅ **Receive Requests**: View pending friend requests with badge notifications
+- ✅ **Accept/Decline**: Manage incoming friend requests
+- ✅ **Friends List**: View all friends with email and friendship date
+- ✅ **Remove Friends**: Remove friends with confirmation dialog
+- ✅ **Bidirectional**: Friendship works both ways automatically
+- ✅ **Real-time Updates**: Automatic refresh with React Query
+- ✅ **Tested**: Full workflow verified with multiple users
+
+**Phase 2.3: Private Wishlist Sharing ✅ COMPLETE**
+- ✅ **Share Private Wishlists**: Share private wishlists with specific friends
+- ✅ **Friend Selection**: Modal with multi-select friend cards (purple theme)
+- ✅ **Share Count**: Display number of friends with access
+- ✅ **View Friend Wishlists**: Navigate to friend's wishlists from Friends page
+- ✅ **Shared Badge**: Purple "Shared with you" badge on shared wishlists
+- ✅ **Optional Auth**: Authenticated users see shared private wishlists
+- ✅ **Tested**: Complete sharing workflow verified (Alice → Bob)
+
+**Coming Next: Phase 2.4 - Notifications & Polish**
+
 ### Multi-Wishlist Feature (Completed)
 Users can now create and manage multiple wishlists with different visibility settings:
 - ✅ **Multiple Named Wishlists**: Create wishlists for different occasions (Christmas, Wedding, Birthday, etc.)
@@ -30,7 +53,7 @@ Users can now create and manage multiple wishlists with different visibility set
 - ✅ **Per-Wishlist Stats**: Track items, reserved count, and total value per wishlist
 - ✅ **Data Migration**: Existing wishlist data automatically migrated
 
-See [FRONTEND_PROGRESS.md](FRONTEND_PROGRESS.md) for detailed implementation notes.
+See [PHASE2_FRIEND_SYSTEM.md](PHASE2_FRIEND_SYSTEM.md) and [FRONTEND_PROGRESS.md](FRONTEND_PROGRESS.md) for detailed implementation notes.
 
 ## 🏗️ Project Structure
 

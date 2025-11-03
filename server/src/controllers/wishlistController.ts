@@ -189,7 +189,7 @@ export const getWishlistItems = async (req: any, res: Response) => {
 // @desc    Get public wishlists by user ID
 // @route   GET /api/wishlists/public/:userId
 // @access  Public
-export const getPublicWishlists = async (req: Request, res: Response) => {
+export const getPublicWishlists = async (req: any, res: Response) => {
   try {
     const user = await User.findById(req.params.userId).select('name wishlists');
     
@@ -197,19 +197,38 @@ export const getPublicWishlists = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Only return public wishlists with non-reserved items
-    const publicWishlists = user.wishlists
-      .filter((wishlist: any) => wishlist.visibility === 'public')
+    // Get the requesting user's ID (if authenticated)
+    const requestingUserId = req.user?._id?.toString();
+
+    // Filter wishlists: public OR shared with requesting user
+    const visibleWishlists = user.wishlists
+      .filter((wishlist: any) => {
+        // Always show public wishlists
+        if (wishlist.visibility === 'public') return true;
+        
+        // Show private wishlists if shared with requesting user
+        if (requestingUserId && wishlist.sharedWith) {
+          return wishlist.sharedWith.some(
+            (id: any) => id.toString() === requestingUserId
+          );
+        }
+        
+        return false;
+      })
       .map((wishlist: any) => ({
         _id: wishlist._id,
         name: wishlist.name,
         description: wishlist.description,
+        visibility: wishlist.visibility,
+        isShared: wishlist.visibility === 'private' && requestingUserId && wishlist.sharedWith?.some(
+          (id: any) => id.toString() === requestingUserId
+        ),
         items: wishlist.items.filter((item: any) => !item.reserved),
       }));
 
     res.json({
       userName: user.name,
-      wishlists: publicWishlists,
+      wishlists: visibleWishlists,
     });
   } catch (error) {
     console.error(error);
@@ -341,6 +360,126 @@ export const deleteWishlistItem = async (req: any, res: Response) => {
     wishlist.items.splice(itemIndex, 1);
     await user.save();
     res.json({ message: 'Wishlist item removed' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Share wishlist with friends
+// @route   POST /api/wishlists/:id/share
+// @access  Private
+export const shareWishlist = async (req: any, res: Response) => {
+  try {
+    const { friendIds } = req.body; // Array of friend user IDs
+
+    if (!Array.isArray(friendIds) || friendIds.length === 0) {
+      return res.status(400).json({ message: 'Friend IDs array required' });
+    }
+
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const wishlist = user.wishlists.find(
+      (w: any) => w._id.toString() === req.params.id
+    );
+
+    if (!wishlist) {
+      return res.status(404).json({ message: 'Wishlist not found' });
+    }
+
+    // Initialize sharedWith if it doesn't exist
+    if (!wishlist.sharedWith) {
+      wishlist.sharedWith = [];
+    }
+
+    // Add friend IDs to sharedWith (avoid duplicates)
+    friendIds.forEach((friendId) => {
+      if (!wishlist.sharedWith!.some((id: any) => id.toString() === friendId)) {
+        wishlist.sharedWith!.push(friendId as any);
+      }
+    });
+
+    await user.save();
+
+    res.json({
+      message: 'Wishlist shared successfully',
+      sharedWith: wishlist.sharedWith,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Unshare wishlist with a friend
+// @route   DELETE /api/wishlists/:id/share/:friendId
+// @access  Private
+export const unshareWishlist = async (req: any, res: Response) => {
+  try {
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const wishlist = user.wishlists.find(
+      (w: any) => w._id.toString() === req.params.id
+    );
+
+    if (!wishlist) {
+      return res.status(404).json({ message: 'Wishlist not found' });
+    }
+
+    if (!wishlist.sharedWith) {
+      return res.status(400).json({ message: 'Wishlist not shared with anyone' });
+    }
+
+    // Remove friend from sharedWith
+    wishlist.sharedWith = wishlist.sharedWith.filter(
+      (id: any) => id.toString() !== req.params.friendId
+    ) as any;
+
+    await user.save();
+
+    res.json({
+      message: 'Wishlist unshared successfully',
+      sharedWith: wishlist.sharedWith,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Get friends wishlist is shared with
+// @route   GET /api/wishlists/:id/shared
+// @access  Private
+export const getSharedWith = async (req: any, res: Response) => {
+  try {
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const wishlist = user.wishlists.find(
+      (w: any) => w._id.toString() === req.params.id
+    );
+
+    if (!wishlist) {
+      return res.status(404).json({ message: 'Wishlist not found' });
+    }
+
+    // Populate sharedWith with user details
+    const sharedWithUsers = await User.find({
+      _id: { $in: wishlist.sharedWith || [] },
+    }).select('name email');
+
+    res.json(sharedWithUsers);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
