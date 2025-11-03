@@ -16,6 +16,11 @@ COPY . .
 ARG REACT_APP_API_URL=http://localhost:5000/api
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
 
+# Speed up build for micro VMs
+ENV GENERATE_SOURCEMAP=false
+ENV NODE_OPTIONS=--max-old-space-size=512
+ENV DISABLE_ESLINT_PLUGIN=true
+
 # Build the app
 RUN npm run build
 
