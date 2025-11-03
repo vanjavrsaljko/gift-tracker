@@ -27,15 +27,13 @@ RUN npm run build
 # Production stage with nginx
 FROM nginx:alpine
 
-# Copy built files
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Copy built files (react-scripts builds to /app/build, not /app/dist)
+COPY --from=builder /app/build /usr/share/nginx/html
 
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Create non-root user
-RUN addgroup -g 1001 -S nginx && \
-    adduser -S nginx -u 1001 -G nginx
+# nginx user already exists in nginx:alpine image, no need to create
 
 EXPOSE 80
 
