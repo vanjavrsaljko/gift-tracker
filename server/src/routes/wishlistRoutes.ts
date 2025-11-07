@@ -11,6 +11,8 @@ import {
   deleteWishlistItem,
   getPublicWishlists,
   reserveWishlistItem,
+  unreserveWishlistItem,
+  markItemBought,
   shareWishlist,
   unshareWishlist,
   getSharedWith,
@@ -45,6 +47,12 @@ router
 
 // Reserve item (public)
 router.put('/:wishlistId/items/:itemId/reserve', reserveWishlistItem);
+
+// Unreserve item (private - owner only)
+router.delete('/:wishlistId/items/:itemId/reserve', protect, unreserveWishlistItem);
+
+// Mark item as bought (private)
+router.put('/:wishlistId/items/:itemId/bought', protect, markItemBought);
 
 // Generic /:id routes - must be last
 router

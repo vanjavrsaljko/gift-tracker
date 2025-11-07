@@ -147,6 +147,7 @@ export const addWishlistItem = async (req: any, res: Response) => {
       link,
       price,
       reserved: false,
+      bought: false,
     };
 
     wishlist.items.push(wishlistItem);
@@ -223,7 +224,7 @@ export const getPublicWishlists = async (req: any, res: Response) => {
         isShared: wishlist.visibility === 'private' && requestingUserId && wishlist.sharedWith?.some(
           (id: any) => id.toString() === requestingUserId
         ),
-        items: wishlist.items.filter((item: any) => !item.reserved),
+        items: wishlist.items.filter((item: any) => !item.reserved && !item.bought),
       }));
 
     res.json({
@@ -311,8 +312,9 @@ export const reserveWishlistItem = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Item not found' });
     }
 
-    if (item.reserved) {
-      return res.status(400).json({ message: 'Item already reserved' });
+    // Check if item is already reserved by someone else
+    if (item.reserved && item.reservedBy?.toString() !== userId) {
+      return res.status(400).json({ message: 'Item already reserved by someone else' });
     }
 
     item.reserved = true;
@@ -322,6 +324,94 @@ export const reserveWishlistItem = async (req: Request, res: Response) => {
 
     res.json({ 
       message: 'Item reserved successfully',
+      item 
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Unreserve a wishlist item (owner only)
+// @route   DELETE /api/wishlists/:wishlistId/items/:itemId/reserve
+// @access  Private
+export const unreserveWishlistItem = async (req: any, res: Response) => {
+  try {
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const wishlist = user.wishlists.find(
+      (w: any) => w._id.toString() === req.params.wishlistId
+    );
+
+    if (!wishlist) {
+      return res.status(404).json({ message: 'Wishlist not found' });
+    }
+
+    const item = wishlist.items.find(
+      (i: any) => i._id.toString() === req.params.itemId
+    );
+
+    if (!item) {
+      return res.status(404).json({ message: 'Item not found' });
+    }
+
+    if (!item.reserved) {
+      return res.status(400).json({ message: 'Item is not reserved' });
+    }
+
+    // Owner can unreserve any item
+    item.reserved = false;
+    item.reservedBy = undefined;
+
+    await user.save();
+    res.json({ 
+      message: 'Item unreserved successfully',
+      item 
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Mark wishlist item as bought
+// @route   PUT /api/wishlists/:wishlistId/items/:itemId/bought
+// @access  Private
+export const markItemBought = async (req: any, res: Response) => {
+  try {
+    const { bought } = req.body;
+
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const wishlist = user.wishlists.find(
+      (w: any) => w._id.toString() === req.params.wishlistId
+    );
+
+    if (!wishlist) {
+      return res.status(404).json({ message: 'Wishlist not found' });
+    }
+
+    const item = wishlist.items.find(
+      (i: any) => i._id.toString() === req.params.itemId
+    );
+
+    if (!item) {
+      return res.status(404).json({ message: 'Item not found' });
+    }
+
+    item.bought = bought !== undefined ? bought : true;
+
+    await user.save();
+    res.json({ 
+      message: bought ? 'Item marked as bought' : 'Item marked as not bought',
       item 
     });
   } catch (error) {
@@ -357,6 +447,7 @@ export const deleteWishlistItem = async (req: any, res: Response) => {
       return res.status(404).json({ message: 'Item not found' });
     }
 
+    // Owner can delete any item (including reserved ones)
     wishlist.items.splice(itemIndex, 1);
     await user.save();
     res.json({ message: 'Wishlist item removed' });

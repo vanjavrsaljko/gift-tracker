@@ -186,6 +186,16 @@ export const wishlistAPI = {
     await api.put(`/wishlists/${wishlistId}/items/${itemId}/reserve`, { userId });
   },
 
+  unreserve: async (wishlistId: string, itemId: string): Promise<WishlistItem> => {
+    const { data } = await api.delete(`/wishlists/${wishlistId}/items/${itemId}/reserve`);
+    return data.item;
+  },
+
+  markBought: async (wishlistId: string, itemId: string, bought: boolean): Promise<WishlistItem> => {
+    const { data } = await api.put(`/wishlists/${wishlistId}/items/${itemId}/bought`, { bought });
+    return data.item;
+  },
+
   // Wishlist sharing
   share: async (wishlistId: string, friendIds: string[]): Promise<{ message: string; sharedWith: string[] }> => {
     const { data } = await api.post(`/wishlists/${wishlistId}/share`, { friendIds });

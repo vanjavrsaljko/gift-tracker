@@ -8,6 +8,7 @@ export interface IWishlistItem {
   price?: number;
   reserved: boolean;
   reservedBy?: mongoose.Types.ObjectId;
+  bought: boolean;
 }
 
 export interface IWishlist {
@@ -75,6 +76,7 @@ const userSchema = new Schema<IUser>(
             price: Number,
             reserved: { type: Boolean, default: false },
             reservedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+            bought: { type: Boolean, default: false },
           },
         ],
         createdAt: { type: Date, default: Date.now },

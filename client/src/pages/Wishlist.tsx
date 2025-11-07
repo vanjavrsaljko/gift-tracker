@@ -42,12 +42,11 @@ import {
   Tab,
   TabPanel,
   Select,
-  Switch,
 } from '@chakra-ui/react';
 import { AddIcon, EditIcon, DeleteIcon, LinkIcon, ExternalLinkIcon, CopyIcon, CheckIcon, SettingsIcon } from '@chakra-ui/icons';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { wishlistAPI, friendAPI } from '../services/api';
-import { Wishlist, WishlistItem, Friend } from '../types';
+import { Wishlist, WishlistItem } from '../types';
 import { useAuth } from '../context/AuthContext';
 
 const WishlistPage: React.FC = () => {
@@ -189,6 +188,66 @@ const WishlistPage: React.FC = () => {
     onError: () => {
       toast({
         title: 'Error adding item',
+        status: 'error',
+        duration: 3000,
+      });
+    },
+  });
+
+  const reserveOwnItemMutation = useMutation({
+    mutationFn: ({ wishlistId, itemId }: { wishlistId: string; itemId: string }) =>
+      wishlistAPI.reserve(wishlistId, itemId, user?._id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wishlists'] });
+      toast({
+        title: 'Item reserved',
+        status: 'success',
+        duration: 3000,
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Error reserving item',
+        status: 'error',
+        duration: 3000,
+      });
+    },
+  });
+
+  const unreserveItemMutation = useMutation({
+    mutationFn: ({ wishlistId, itemId }: { wishlistId: string; itemId: string }) =>
+      wishlistAPI.unreserve(wishlistId, itemId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wishlists'] });
+      toast({
+        title: 'Item unreserved',
+        status: 'success',
+        duration: 3000,
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Error unreserving item',
+        status: 'error',
+        duration: 3000,
+      });
+    },
+  });
+
+  const markBoughtMutation = useMutation({
+    mutationFn: ({ wishlistId, itemId, bought }: { wishlistId: string; itemId: string; bought: boolean }) =>
+      wishlistAPI.markBought(wishlistId, itemId, bought),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['wishlists'] });
+      toast({
+        title: variables.bought ? 'Item marked as bought' : 'Item marked as not bought',
+        status: 'success',
+        duration: 3000,
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Error updating item',
         status: 'error',
         duration: 3000,
       });
@@ -383,6 +442,7 @@ const WishlistPage: React.FC = () => {
   const items = currentWishlist?.items || [];
   const totalItems = items.length;
   const reservedItems = items.filter(item => item.reserved).length;
+  const boughtItems = items.filter(item => item.bought).length;
   const totalValue = items.reduce((sum, item) => sum + (item.price || 0), 0);
 
   if (isLoading) {
@@ -520,7 +580,7 @@ const WishlistPage: React.FC = () => {
                         </Card>
 
                         {/* Stats */}
-                        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+                        <SimpleGrid columns={{ base: 1, md: 4 }} spacing={4}>
                           <Card>
                             <CardBody>
                               <Text fontSize="sm" color="gray.600">
@@ -538,6 +598,16 @@ const WishlistPage: React.FC = () => {
                               </Text>
                               <Text fontSize="2xl" fontWeight="bold">
                                 {reservedItems}
+                              </Text>
+                            </CardBody>
+                          </Card>
+                          <Card>
+                            <CardBody>
+                              <Text fontSize="sm" color="gray.600">
+                                Bought
+                              </Text>
+                              <Text fontSize="2xl" fontWeight="bold" color="green.600">
+                                {boughtItems}
                               </Text>
                             </CardBody>
                           </Card>
@@ -574,14 +644,19 @@ const WishlistPage: React.FC = () => {
                             ) : (
                               <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
                                 {items.map((item) => (
-                                  <Card key={item._id} variant="outline">
+                                  <Card key={item._id} variant="outline" bg={item.bought ? 'green.50' : 'white'}>
                                     <CardBody>
                                       <VStack align="stretch" spacing={3}>
-                                        <HStack justify="space-between">
+                                        <HStack justify="space-between" wrap="wrap">
                                           <Heading size="sm">{item.name}</Heading>
-                                          {item.reserved && (
-                                            <Badge colorScheme="orange">Reserved</Badge>
-                                          )}
+                                          <HStack>
+                                            {item.reserved && (
+                                              <Badge colorScheme="orange">Reserved</Badge>
+                                            )}
+                                            {item.bought && (
+                                              <Badge colorScheme="green">Bought</Badge>
+                                            )}
+                                          </HStack>
                                         </HStack>
 
                                         {item.description && (
@@ -605,33 +680,94 @@ const WishlistPage: React.FC = () => {
                                           </Link>
                                         )}
 
-                                        {item.reserved && (
+                                        {item.reserved && item.reservedBy === user?._id && (
                                           <Text fontSize="xs" color="orange.600" fontStyle="italic">
-                                            This item has been reserved by someone
+                                            Reserved by you
                                           </Text>
                                         )}
 
                                         <Divider />
 
-                                        <HStack justify="flex-end">
-                                          <IconButton
-                                            aria-label="Edit item"
-                                            icon={<EditIcon />}
-                                            size="sm"
-                                            variant="ghost"
-                                            onClick={() => handleEditItem(item)}
-                                            isDisabled={item.reserved}
-                                          />
-                                          <IconButton
-                                            aria-label="Delete item"
-                                            icon={<DeleteIcon />}
-                                            size="sm"
-                                            variant="ghost"
-                                            colorScheme="red"
-                                            onClick={() => handleDeleteItem(wishlist._id, item._id)}
-                                            isDisabled={item.reserved}
-                                          />
-                                        </HStack>
+                                        {/* Owner Controls */}
+                                        <VStack align="stretch" spacing={2}>
+                                          {!item.reserved && !item.bought && (
+                                            <Button
+                                              size="sm"
+                                              colorScheme="blue"
+                                              variant="outline"
+                                              onClick={() => reserveOwnItemMutation.mutate({ 
+                                                wishlistId: wishlist._id, 
+                                                itemId: item._id 
+                                              })}
+                                              isLoading={reserveOwnItemMutation.isPending}
+                                            >
+                                              Reserve for Myself
+                                            </Button>
+                                          )}
+                                          {item.reserved && !item.bought && (
+                                            <HStack>
+                                              <Button
+                                                size="sm"
+                                                colorScheme="orange"
+                                                variant="outline"
+                                                onClick={() => unreserveItemMutation.mutate({ 
+                                                  wishlistId: wishlist._id, 
+                                                  itemId: item._id 
+                                                })}
+                                                isLoading={unreserveItemMutation.isPending}
+                                                flex={1}
+                                              >
+                                                Un-reserve
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                colorScheme="green"
+                                                onClick={() => markBoughtMutation.mutate({ 
+                                                  wishlistId: wishlist._id, 
+                                                  itemId: item._id,
+                                                  bought: true
+                                                })}
+                                                isLoading={markBoughtMutation.isPending}
+                                                flex={1}
+                                              >
+                                                Mark as Bought
+                                              </Button>
+                                            </HStack>
+                                          )}
+                                          {item.bought && (
+                                            <Button
+                                              size="sm"
+                                              colorScheme="orange"
+                                              variant="outline"
+                                              onClick={() => markBoughtMutation.mutate({ 
+                                                wishlistId: wishlist._id, 
+                                                itemId: item._id,
+                                                bought: false
+                                              })}
+                                              isLoading={markBoughtMutation.isPending}
+                                            >
+                                              Mark as Not Bought
+                                            </Button>
+                                          )}
+                                          <HStack justify="flex-end">
+                                            <IconButton
+                                              aria-label="Edit item"
+                                              icon={<EditIcon />}
+                                              size="sm"
+                                              variant="ghost"
+                                              onClick={() => handleEditItem(item)}
+                                              isDisabled={item.bought}
+                                            />
+                                            <IconButton
+                                              aria-label="Delete item"
+                                              icon={<DeleteIcon />}
+                                              size="sm"
+                                              variant="ghost"
+                                              colorScheme="red"
+                                              onClick={() => handleDeleteItem(wishlist._id, item._id)}
+                                            />
+                                          </HStack>
+                                        </VStack>
                                       </VStack>
                                     </CardBody>
                                   </Card>

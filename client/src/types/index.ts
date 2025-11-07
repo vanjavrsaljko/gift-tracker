@@ -32,6 +32,7 @@ export interface WishlistItem {
   price?: number;
   reserved: boolean;
   reservedBy?: string;
+  bought: boolean;
 }
 
 export interface Wishlist {
